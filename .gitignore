@@ -12,6 +12,7 @@ app/app.sqlite3
 outputs/
 bench/
 persona_db/
+deploy/
 
 # Large local data
 target_personas_10_49.jsonl
