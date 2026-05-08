@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+venv/
+.venv/
+
+# Local runtime artifacts
+app/app.sqlite3
+outputs/
+bench/
+persona_db/
+
+# Large local data
+target_personas_10_49.jsonl
+*.jsonl
+!script/sample_personas_10_49.jsonl
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,15 @@
+[Unit]
+Description=Nemotron Marketing Streamlit UI
+After=network.target
+
+[Service]
+Type=simple
+User=renew
+WorkingDirectory=/home/renew/workspace/nemotron-mini
+ExecStart=/home/renew/workspace/nemotron-mini/venv/bin/streamlit run app/streamlit_app.py --server.address 0.0.0.0 --server.port 8501
+Restart=always
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

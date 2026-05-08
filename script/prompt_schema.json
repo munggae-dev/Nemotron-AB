@@ -1,0 +1,18 @@
+{
+  "winner": "A 또는 B",
+  "scores": {
+    "A": {
+      "interest": "0~100 정수",
+      "click_intent": "0~100 정수",
+      "purchase_intent": "0~100 정수",
+      "trust": "0~100 정수"
+    },
+    "B": {
+      "interest": "0~100 정수",
+      "click_intent": "0~100 정수",
+      "purchase_intent": "0~100 정수",
+      "trust": "0~100 정수"
+    }
+  },
+  "reason": "한 줄 근거 (80자 이내)"
+}
