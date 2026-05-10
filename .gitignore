@@ -1,5 +1,9 @@
-# Python
+# Python / Node
 __pycache__/
+node_modules/
+apps/web/node_modules/
+apps/web/.next/
+apps/web/.env.local
 *.py[cod]
 *.so
 
@@ -9,17 +13,21 @@ venv/
 
 # Local runtime artifacts
 app/app.sqlite3
+app/test_*.sqlite3
 outputs/
 bench/
 persona_db/
 deploy/
 
 # Large local data
-target_personas_10_49.jsonl
+target_personas_20_59.jsonl
 *.jsonl
-!script/sample_personas_10_49.jsonl
+!script/sample_personas_20_59.jsonl
 
 # IDE / OS
 .DS_Store
 .idea/
 .vscode/
+
+# Stitch export
+stitch-*

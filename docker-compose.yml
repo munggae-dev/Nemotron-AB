@@ -1,0 +1,60 @@
+# 로컬 개발용 Compose (Ollama는 호스트에서 실행하는 것을 권장)
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8010:8010"
+    environment:
+      APP_SQLITE_PATH: /data/app.sqlite3
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://web:3000
+    volumes:
+      - nemotron-data:/data
+      - ./outputs:/app/outputs
+      - ./persona_db:/app/persona_db
+      - ./script:/app/script:ro
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8010
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8010
+    depends_on:
+      - api
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      APP_SQLITE_PATH: /data/app.sqlite3
+    command:
+      [
+        "python",
+        "-m",
+        "app.worker_main",
+        "--db-path",
+        "/data/app.sqlite3",
+        "--poll-interval-sec",
+        "2",
+        "--max-jobs-per-tick",
+        "1",
+        "--task-parallelism",
+        "2",
+      ]
+    volumes:
+      - nemotron-data:/data
+      - ./outputs:/app/outputs
+      - ./persona_db:/app/persona_db
+      - ./script:/app/script:ro
+    depends_on:
+      - api
+
+volumes:
+  nemotron-data:

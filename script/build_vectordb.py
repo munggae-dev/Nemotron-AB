@@ -8,7 +8,7 @@ from sentence_transformers import SentenceTransformer
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Nemotron Persona VectorDB 빌드 스크립트")
-    parser.add_argument("--input-file", default="target_personas_10_49.jsonl")
+    parser.add_argument("--input-file", default="target_personas_20_59.jsonl")
     parser.add_argument("--db-path", default="./persona_db")
     parser.add_argument("--collection-name", default="marketing_personas")
     parser.add_argument("--model-name", default="jhgan/ko-sroberta-multitask")
@@ -61,8 +61,13 @@ def main():
         core_parts = [
             f"나이: {to_int(data.get('age'))}세",
             f"성별: {data.get('sex', '미상')}",
+            f"혼인: {data.get('marital_status', '')}",
+            f"학력: {data.get('education_level', '')}",
+            f"가구: {data.get('family_type', '')}",
+            f"주택: {data.get('housing_type', '')}",
+            f"병역: {data.get('military_status', '')}",
             f"직업: {data.get('occupation', '미상')}",
-            f"거주지: {data.get('district', '미상')}",
+            f"거주: {data.get('province', '')} {data.get('district', '미상')}",
             f"대표 페르소나: {data.get('persona', '')}",
             f"직업 페르소나: {data.get('professional_persona', '')}",
             f"관심사: {data.get('hobbies_and_interests', '')}",
@@ -100,9 +105,9 @@ def main():
         for i, line in enumerate(f):
             data = json.loads(line)
 
-            # 안전장치: 벡터DB 적재 시점에서도 10~49세 범위만 허용
+            # 안전장치: 벡터DB 적재 시점에서도 19~59세 범위만 허용(19세는 age_bucket=20s)
             age = to_int(data.get("age"), default=-1)
-            if not (10 <= age <= 49):
+            if not (19 <= age <= 59):
                 skipped += 1
                 continue
 
@@ -111,15 +116,31 @@ def main():
 
             docs.append(text_to_embed)
             # 메타데이터 확장: 연령대/성별/직업/지역 필터를 빠르게 수행 가능
+            if 19 <= age <= 29:
+                age_bucket = "20s"
+            elif 30 <= age <= 39:
+                age_bucket = "30s"
+            elif 40 <= age <= 49:
+                age_bucket = "40s"
+            elif 50 <= age <= 59:
+                age_bucket = "50s"
+            else:
+                age_bucket = f"{(age // 10) * 10}s"
+
             metadatas.append(
                 {
                     "uuid": str(data.get("uuid", f"row_{i}")),
                     "age": age,
-                    "age_bucket": f"{(age // 10) * 10}s",
+                    "age_bucket": age_bucket,
                     "sex": str(data.get("sex", "미상")),
                     "occupation": str(data.get("occupation", "미상")),
                     "province": str(data.get("province", "미상")),
                     "district": str(data.get("district", "미상")),
+                    "marital_status": str(data.get("marital_status", "")),
+                    "education_level": str(data.get("education_level", "")),
+                    "family_type": str(data.get("family_type", "")),
+                    "housing_type": str(data.get("housing_type", "")),
+                    "military_status": str(data.get("military_status", "")),
                 }
             )
             # 재빌드 안정성을 위해 인덱스 대신 데이터 고유값(uuid) 사용

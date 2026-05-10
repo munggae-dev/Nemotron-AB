@@ -1,14 +1,126 @@
 import json
+import os
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+
+# 서브프로세스: unset 또는 0 이하 → 타임아웃 없음(기존과 동일). 예: 3600
+_ENV_SUBPROCESS_TIMEOUT = "MARKETING_VALIDATOR_SUBPROCESS_TIMEOUT_SEC"
+# 1/true/yes → stdout/stderr를 캡처하지 않고 상속(디버깅용)
+_ENV_SUBPROCESS_STREAM = "MARKETING_VALIDATOR_SUBPROCESS_STREAM"
+_MAX_ERR_CHARS = 6000
+
+
+def _truncate_for_error(text: str, limit: int = _MAX_ERR_CHARS) -> str:
+    text = text.strip()
+    if not text:
+        return ""
+    if len(text) <= limit:
+        return text
+    return text[:limit] + "\n... [출력 잘림] ..."
+
+
+def _subprocess_timeout_sec() -> Optional[float]:
+    raw = os.environ.get(_ENV_SUBPROCESS_TIMEOUT, "").strip()
+    if not raw:
+        return None
+    try:
+        sec = float(raw)
+    except ValueError:
+        return None
+    return sec if sec > 0 else None
+
+
+def _subprocess_stream_output() -> bool:
+    return os.environ.get(_ENV_SUBPROCESS_STREAM, "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def _cmd_summary(cmd: List[str]) -> str:
+    if not cmd:
+        return "(빈 명령)"
+    if len(cmd) <= 2:
+        return " ".join(cmd)
+    return f"{cmd[0]} {cmd[1]} ... ({len(cmd)} 인자)"
+
+
+def _format_subprocess_failure(completed: subprocess.CompletedProcess, cmd: List[str]) -> str:
+    parts = [
+        f"validator 종료 코드 {completed.returncode}",
+        f"명령: {_cmd_summary(cmd)}",
+    ]
+    err = _truncate_for_error(completed.stderr or "")
+    out = _truncate_for_error(completed.stdout or "")
+    if err:
+        parts.append(f"stderr:\n{err}")
+    if out:
+        parts.append(f"stdout:\n{out}")
+    if not err and not out:
+        parts.append("(캡처된 stdout/stderr 없음)")
+    return "\n\n".join(parts)
+
+
+def _format_timeout_error(cmd: List[str], timeout_sec: Optional[float], exc: subprocess.TimeoutExpired) -> str:
+    ts_display = str(timeout_sec) if timeout_sec is not None else "?"
+    parts = [
+        f"validator 서브프로세스 타임아웃 ({ts_display}초, {_ENV_SUBPROCESS_TIMEOUT})",
+        f"명령: {_cmd_summary(cmd)}",
+    ]
+
+    def _maybe_text(chunk: object) -> str:
+        if chunk is None:
+            return ""
+        if isinstance(chunk, bytes):
+            return chunk.decode(errors="replace")
+        return str(chunk)
+
+    out = _maybe_text(exc.output)
+    err = _maybe_text(exc.stderr)
+    if out:
+        parts.append(f"stdout(일부):\n{_truncate_for_error(out)}")
+    if err:
+        parts.append(f"stderr(일부):\n{_truncate_for_error(err)}")
+    return "\n\n".join(parts)
+
+
+def _run_marketing_validator_subprocess(cmd: List[str]) -> subprocess.CompletedProcess:
+    timeout = _subprocess_timeout_sec()
+    stream = _subprocess_stream_output()
+    base_kw: Dict[str, Any] = {
+        "check": False,
+        "cwd": str(ROOT_DIR),
+    }
+    if timeout is not None:
+        base_kw["timeout"] = timeout
+    if stream:
+        base_kw["stdout"] = None
+        base_kw["stderr"] = None
+        try:
+            return subprocess.run(cmd, **base_kw)
+        except subprocess.TimeoutExpired as e:
+            raise RuntimeError(_format_timeout_error(cmd, timeout, e)) from e
+    base_kw["capture_output"] = True
+    base_kw["text"] = True
+    try:
+        return subprocess.run(cmd, **base_kw)
+    except subprocess.TimeoutExpired as e:
+        raise RuntimeError(_format_timeout_error(cmd, timeout, e)) from e
 
 import chromadb
 import torch
 from sentence_transformers import SentenceTransformer
 
+from app.campaign_assets import payload_has_any_image
+from app.persona_filter_schema import retrieval_fanout_multiplier
+from app.persona_where import chroma_where_and
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
+
 SCRIPT_PATH = ROOT_DIR / "script" / "marketing_validator.py"
 OUTPUT_BASE = ROOT_DIR / "outputs" / "jobs"
 _RETRIEVAL_MODEL = None
@@ -22,17 +134,29 @@ def _make_campaign_payload(job_id: int, payload: Dict) -> List[Dict]:
         "goal": payload["goal"],
         "description": payload.get("description", ""),
     }
-    return [
-        {
-            "id": f"job_{job_id}",
-            "context": context,
-            "copy_a": payload["copy_a"],
-            "copy_b": payload["copy_b"],
-        }
-    ]
+    camp = {
+        "id": f"job_{job_id}",
+        "context": context,
+        "copy_a": payload["copy_a"],
+        "copy_b": payload["copy_b"],
+    }
+    if payload.get("image_a"):
+        camp["image_a"] = payload["image_a"]
+    if payload.get("image_b"):
+        camp["image_b"] = payload["image_b"]
+    return [camp]
 
 
 def _retrieve_filtered_personas(payload: Dict, max_personas: int) -> List[Dict]:
+    import os
+
+    if os.environ.get("PERSONA_RETRIEVE_BACKEND", "").strip().lower() == "langchain_chroma":
+        from app.chroma_langchain import retrieve_personas_langchain
+
+        rk = int(payload.get("retrieval_k_per_bucket") or 80)
+        rk = max(20, min(500, rk))
+        return retrieve_personas_langchain(payload, max_personas=max_personas, k=rk)
+
     db_path = str((ROOT_DIR / "persona_db").resolve())
     collection_name = "marketing_personas"
     client = chromadb.PersistentClient(path=db_path)
@@ -43,20 +167,8 @@ def _retrieve_filtered_personas(payload: Dict, max_personas: int) -> List[Dict]:
         _RETRIEVAL_MODEL = SentenceTransformer("jhgan/ko-sroberta-multitask", device=device)
 
     persona_filter = payload["persona_filter"]
-    where_conditions = [
-        {"age": {"$gte": int(persona_filter["age_min"])}},
-        {"age": {"$lte": int(persona_filter["age_max"])}},
-    ]
-    sex = persona_filter.get("sex", "all")
-    if sex != "all":
-        where_conditions.append({"sex": sex})
-    province = persona_filter.get("province", "").strip()
-    if province:
-        where_conditions.append({"province": province})
-    district = persona_filter.get("district", "").strip()
-    if district:
-        where_conditions.append({"district": district})
-    where = {"$and": where_conditions}
+    where = chroma_where_and(persona_filter)
+    occ_needle = str(persona_filter.get("occupation_contains", "") or "").strip()
 
     query_text = " ".join(
         [
@@ -69,7 +181,13 @@ def _retrieve_filtered_personas(payload: Dict, max_personas: int) -> List[Dict]:
             payload.get("description", ""),
         ]
     ).strip()
-    n_results = max(max_personas * 3, 100)
+    if payload_has_any_image(payload):
+        query_text = f"{query_text} 이미지 크리에이티브 포함".strip()
+    rk = int(payload.get("retrieval_k_per_bucket") or 80)
+    rk = max(20, min(500, rk))
+    base_n = max(rk, max_personas, 20)
+    mult = retrieval_fanout_multiplier(persona_filter)
+    n_results = min(2000, max(base_n * mult, base_n))
     query_embedding = _RETRIEVAL_MODEL.encode(
         [query_text],
         convert_to_numpy=True,
@@ -88,6 +206,8 @@ def _retrieve_filtered_personas(payload: Dict, max_personas: int) -> List[Dict]:
 
     rows: List[Dict] = []
     for idx, meta in enumerate(metas):
+        if len(rows) >= max_personas:
+            break
         row = dict(meta or {})
         row["uuid"] = ids[idx] if idx < len(ids) else f"p-{idx}"
         row["persona"] = docs[idx] if idx < len(docs) else ""
@@ -97,9 +217,9 @@ def _retrieve_filtered_personas(payload: Dict, max_personas: int) -> List[Dict]:
         row.setdefault("occupation", "미상")
         row.setdefault("province", "미상")
         row.setdefault("district", "미상")
+        if occ_needle and occ_needle not in str(row.get("occupation", "")):
+            continue
         rows.append(row)
-        if len(rows) >= max_personas:
-            break
     return rows
 
 
@@ -147,9 +267,14 @@ def run_validator(job_id: int, payload: Dict) -> Tuple[Path, Path, Dict]:
         "--max-personas",
         str(max_personas),
     ]
-    completed = subprocess.run(cmd, check=False, capture_output=True, text=True)
+    completed = _run_marketing_validator_subprocess(cmd)
     if completed.returncode != 0:
-        raise RuntimeError((completed.stderr or completed.stdout).strip() or "validator 실행 실패")
+        if _subprocess_stream_output():
+            raise RuntimeError(
+                f"validator 종료 코드 {completed.returncode} "
+                f"({_ENV_SUBPROCESS_STREAM}=1 이라 stdout/stderr는 캡처되지 않음)"
+            )
+        raise RuntimeError(_format_subprocess_failure(completed, cmd))
 
     report_json = output_dir / f"job_{job_id}.report.json"
     partial_jsonl = output_dir / f"job_{job_id}.partial.jsonl"

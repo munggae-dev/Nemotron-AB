@@ -1,11 +1,4 @@
-{"id":"p10_1","age":14,"gender":"F","job":"student","interest":"beauty"}
-{"id":"p10_2","age":15,"gender":"M","job":"student","interest":"game"}
-{"id":"p10_3","age":16,"gender":"F","job":"student","interest":"fashion"}
-{"id":"p10_4","age":17,"gender":"M","job":"student","interest":"sports"}
-{"id":"p10_5","age":18,"gender":"F","job":"student","interest":"music"}
-{"id":"p10_6","age":19,"gender":"M","job":"student","interest":"tech"}
-{"id":"p10_7","age":13,"gender":"F","job":"student","interest":"sns"}
-{"id":"p10_8","age":12,"gender":"M","job":"student","interest":"video"}
+{"id":"p19_1","age":19,"gender":"F","job":"student","interest":"beauty"}
 {"id":"p20_1","age":20,"gender":"F","job":"office","interest":"travel"}
 {"id":"p20_2","age":21,"gender":"M","job":"office","interest":"finance"}
 {"id":"p20_3","age":22,"gender":"F","job":"college","interest":"food"}
@@ -30,3 +23,11 @@
 {"id":"p40_6","age":45,"gender":"M","job":"specialist","interest":"car"}
 {"id":"p40_7","age":46,"gender":"F","job":"consultant","interest":"health"}
 {"id":"p40_8","age":47,"gender":"M","job":"consultant","interest":"investment"}
+{"id":"p50_1","age":50,"gender":"F","job":"executive","interest":"wellness"}
+{"id":"p50_2","age":51,"gender":"M","job":"executive","interest":"finance"}
+{"id":"p50_3","age":52,"gender":"F","job":"advisor","interest":"travel"}
+{"id":"p50_4","age":53,"gender":"M","job":"advisor","interest":"golf"}
+{"id":"p50_5","age":54,"gender":"F","job":"retiree","interest":"health"}
+{"id":"p50_6","age":55,"gender":"M","job":"retiree","interest":"walking"}
+{"id":"p50_7","age":56,"gender":"F","job":"consultant","interest":"culture"}
+{"id":"p50_8","age":57,"gender":"M","job":"owner","interest":"family"}

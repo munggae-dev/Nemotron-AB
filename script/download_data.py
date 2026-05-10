@@ -7,11 +7,11 @@ def main():
     
     print(f"원본 데이터 개수: {len(dataset)}개")
 
-    print("2. 10대~40대(10~49세) 타겟 필터링 중...")
+    print("2. 만 19세~59세 타겟 필터링 중(19세는 이후 20대 버킷에 포함)...")
     def filter_target_age(example):
         try:
             age = int(example['age'])
-            return 10 <= age <= 49
+            return 19 <= age <= 59
         except (ValueError, KeyError):
             return False
 
@@ -20,7 +20,7 @@ def main():
     
     print(f"필터링된 데이터 개수: {len(filtered_dataset)}개")
 
-    output_file = "target_personas_10_49.jsonl"
+    output_file = "target_personas_20_59.jsonl"
     print(f"3. {output_file} 파일로 저장 중...")
     filtered_dataset.to_json(output_file, force_ascii=False)
     

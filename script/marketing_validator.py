@@ -15,7 +15,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 import chromadb
 from sentence_transformers import SentenceTransformer
 
-AGE_BUCKETS = ["10s", "20s", "30s", "40s"]
+AGE_BUCKETS = ["20s", "30s", "40s", "50s"]
 DEFAULT_METRIC_WEIGHTS = {
     "interest": 0.25,
     "click_intent": 0.25,
@@ -38,15 +38,29 @@ class Persona:
 
 
 def age_to_bucket(age: int) -> Optional[str]:
-    if 10 <= age <= 19:
-        return "10s"
-    if 20 <= age <= 29:
+    # 만 19세는 데이터·분석 모두 20대(20s) 버킷에 포함
+    if 19 <= age <= 29:
         return "20s"
     if 30 <= age <= 39:
         return "30s"
     if 40 <= age <= 49:
         return "40s"
+    if 50 <= age <= 59:
+        return "50s"
     return None
+
+
+def bucket_age_bounds(bucket: str) -> Tuple[int, int]:
+    """Chroma age 필터와 age_to_bucket 규칙을 맞춘다(20s = 19~29)."""
+    if bucket == "20s":
+        return 19, 29
+    if bucket == "30s":
+        return 30, 39
+    if bucket == "40s":
+        return 40, 49
+    if bucket == "50s":
+        return 50, 59
+    raise ValueError(f"unknown bucket: {bucket}")
 
 
 def load_personas(persona_file: Path) -> Iterable[Dict]:
@@ -127,29 +141,63 @@ def sample_personas_by_bucket(
     return sampled[:max_personas], warnings
 
 
+def campaign_has_images(campaign: Dict) -> bool:
+    for key in ("image_a", "image_b"):
+        ref = campaign.get(key)
+        if isinstance(ref, dict) and str(ref.get("value", "")).strip():
+            return True
+    return False
+
+
+def _campaign_image_seed_fragment(campaign: Dict) -> str:
+    parts = []
+    for key in ("image_a", "image_b"):
+        ref = campaign.get(key)
+        if isinstance(ref, dict):
+            parts.append(f"{key}:{ref.get('type')}:{ref.get('value')}")
+    return "|".join(parts)
+
+
+def build_eval_json_schema(metrics: Dict[str, float], max_reason_chars: int) -> Dict:
+    return {
+        "winner": "A 또는 B",
+        "scores": {
+            "A": {"interest": 0, "click_intent": 0, "purchase_intent": 0, "trust": 0},
+            "B": {"interest": 0, "click_intent": 0, "purchase_intent": 0, "trust": 0},
+        },
+        "reason": f"{max_reason_chars}자 이내 한 줄 근거",
+    }
+
+
 def build_prompt(
     persona: Persona,
     campaign: Dict,
     metrics: Dict[str, float],
     max_reason_chars: int,
 ) -> str:
-    json_schema = {
-        "winner": "A 또는 B",
-        "scores": {"A": {"interest": 0, "click_intent": 0, "purchase_intent": 0, "trust": 0},
-                   "B": {"interest": 0, "click_intent": 0, "purchase_intent": 0, "trust": 0}},
-        "reason": f"{max_reason_chars}자 이내 한 줄 근거",
-    }
+    json_schema = build_eval_json_schema(metrics, max_reason_chars)
     metric_keys = ", ".join(metrics.keys())
-    return (
+    intro = (
         "당신은 마케팅 카피 A/B 심사 모델입니다.\n"
         "아래 페르소나 기준으로 A와 B 중 더 나은 광고 카피를 선택하세요.\n"
+    )
+    if campaign_has_images(campaign):
+        intro = (
+            "당신은 마케팅 크리에이티브 A/B 심사 모델입니다.\n"
+            "아래 페르소나 기준으로 안 A와 안 B를 비교합니다. "
+            "각 안은 카피와(있는 경우) 동시에 제공되는 이미지를 하나의 광고 안으로 간주하세요.\n"
+        )
+    copy_a = str(campaign.get("copy_a", "") or "").strip() or "(없음)"
+    copy_b = str(campaign.get("copy_b", "") or "").strip() or "(없음)"
+    return (
+        f"{intro}"
         f"- 평가 지표: {metric_keys}\n"
         "- 점수 범위: 각 지표 0~100 정수\n"
         "- 출력은 오직 JSON만 허용\n\n"
         f"[페르소나]\n{json.dumps(persona.raw, ensure_ascii=False)}\n\n"
         f"[캠페인 맥락]\n{json.dumps(campaign.get('context', {}), ensure_ascii=False)}\n\n"
-        f"[카피 A]\n{campaign['copy_a']}\n\n"
-        f"[카피 B]\n{campaign['copy_b']}\n\n"
+        f"[카피 A]\n{copy_a}\n\n"
+        f"[카피 B]\n{copy_b}\n\n"
         f"[JSON 스키마]\n{json.dumps(json_schema, ensure_ascii=False)}"
     )
 
@@ -160,7 +208,8 @@ def _hash_to_score(seed_text: str) -> int:
 
 
 def evaluate_with_mock(persona: Persona, campaign: Dict, metrics: Dict[str, float], seed: int) -> Dict:
-    base_key = f"{seed}|{persona.persona_id}|{campaign['id']}"
+    img_seed = _campaign_image_seed_fragment(campaign)
+    base_key = f"{seed}|{persona.persona_id}|{campaign['id']}|{img_seed}"
     scores = {"A": {}, "B": {}}
     for arm in ("A", "B"):
         for metric in metrics.keys():
@@ -194,6 +243,11 @@ def evaluate_with_ollama(
     ollama_model: str,
     ollama_timeout_sec: int,
 ) -> Dict:
+    if campaign_has_images(campaign):
+        raise ValueError(
+            "이미지가 포함된 캠페인은 단일 텍스트 프롬프트 Ollama API로 평가할 수 없습니다. "
+            "앱 워커(ChatOllama 멀티모달) 경로를 사용하세요."
+        )
     prompt = build_prompt(
         persona=persona,
         campaign=campaign,
@@ -479,7 +533,7 @@ def run_campaign(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Nemotron Personas Korea 기반 A/B 카피 검증 MVP")
     parser.add_argument("--persona-source", choices=["file", "vectordb"], default="file")
-    parser.add_argument("--persona-file", type=Path, default=Path("target_personas_10_49.jsonl"))
+    parser.add_argument("--persona-file", type=Path, default=Path("target_personas_20_59.jsonl"))
     parser.add_argument("--db-path", type=Path, default=Path("persona_db"))
     parser.add_argument("--collection-name", default="marketing_personas")
     parser.add_argument("--retrieval-k-per-bucket", type=int, default=200)
@@ -520,7 +574,11 @@ def build_retrieval_query(campaign: Dict) -> str:
         str(campaign.get("copy_a", "")),
         str(campaign.get("copy_b", "")),
     ]
-    return " ".join(part for part in fields if part).strip()
+    base = " ".join(part for part in fields if part).strip()
+    if campaign_has_images(campaign):
+        suffix = "이미지 크리에이티브 포함"
+        return f"{base} {suffix}".strip() if base else suffix
+    return base
 
 
 def retrieve_personas_from_vectordb(
@@ -546,14 +604,13 @@ def retrieve_personas_from_vectordb(
 
     selected: Dict[str, List[Persona]] = {b: [] for b in AGE_BUCKETS}
     for bucket in AGE_BUCKETS:
-        # 10s/20s/30s/40s -> [10,19] ...
-        base_age = int(bucket[:2])
+        lo, hi = bucket_age_bounds(bucket)
         result = collection.query(
             query_embeddings=[query_embedding],
             where={
                 "$and": [
-                    {"age": {"$gte": base_age}},
-                    {"age": {"$lte": base_age + 9}},
+                    {"age": {"$gte": lo}},
+                    {"age": {"$lte": hi}},
                 ]
             },
             n_results=per_bucket_target,

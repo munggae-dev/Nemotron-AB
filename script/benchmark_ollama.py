@@ -5,6 +5,9 @@ import time
 from pathlib import Path
 
 
+ROOT_DIR = Path(__file__).resolve().parents[1]
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Ollama 평가 성능 벤치마크")
     parser.add_argument("--campaign-file", type=Path, default=Path("script/sample_campaigns.json"))
@@ -37,8 +40,8 @@ def main() -> None:
         out_dir = args.output_root / f"c{c}"
         out_dir.mkdir(parents=True, exist_ok=True)
         cmd = [
-            "./venv/bin/python",
-            "script/marketing_validator.py",
+            str(ROOT_DIR / "venv" / "bin" / "python"),
+            str(ROOT_DIR / "script" / "marketing_validator.py"),
             "--persona-source",
             "vectordb",
             "--db-path",
@@ -67,7 +70,13 @@ def main() -> None:
             str(c),
         ]
         t0 = time.perf_counter()
-        proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
+        proc = subprocess.run(
+            cmd,
+            check=False,
+            capture_output=True,
+            text=True,
+            cwd=str(ROOT_DIR),
+        )
         elapsed = time.perf_counter() - t0
         ok = proc.returncode == 0
         results.append(

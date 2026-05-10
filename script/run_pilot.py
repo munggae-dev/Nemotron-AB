@@ -5,10 +5,12 @@ import time
 from pathlib import Path
 from statistics import pstdev
 
+ROOT_DIR = Path(__file__).resolve().parents[1]
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="마케팅 검증 MVP 파일럿 실행기")
-    parser.add_argument("--persona-file", type=Path, default=Path("target_personas_10_49.jsonl"))
+    parser.add_argument("--persona-file", type=Path, default=Path("target_personas_20_59.jsonl"))
     parser.add_argument("--campaign-file", type=Path, default=Path("script/sample_campaigns.json"))
     parser.add_argument("--profile", choices=["small", "standard"], default="small")
     parser.add_argument("--runs", type=int, default=3)
@@ -30,8 +32,8 @@ def main() -> None:
         t0 = time.perf_counter()
         subprocess.run(
             [
-                "python",
-                "script/marketing_validator.py",
+                str(ROOT_DIR / "venv" / "bin" / "python"),
+                str(ROOT_DIR / "script" / "marketing_validator.py"),
                 "--persona-file",
                 str(args.persona_file),
                 "--campaign-file",
@@ -44,6 +46,7 @@ def main() -> None:
                 str(run_dir),
             ],
             check=True,
+            cwd=str(ROOT_DIR),
         )
         elapsed_sec.append(time.perf_counter() - t0)
 
