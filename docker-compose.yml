@@ -1,4 +1,8 @@
 # 로컬 개발용 Compose (Ollama는 호스트에서 실행하는 것을 권장)
+#
+# 기본: SQLite 모드 — `docker compose up`
+# Postgres 옵션: `docker compose --profile postgres up`
+#   → postgres 컨테이너가 함께 실행되고, api/worker 가 DATABASE_URL 로 PG 를 사용합니다.
 services:
   api:
     build:
@@ -8,6 +12,7 @@ services:
       - "8010:8010"
     environment:
       APP_SQLITE_PATH: /data/app.sqlite3
+      DATABASE_URL: ${DATABASE_URL:-}
       CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://web:3000
     volumes:
       - nemotron-data:/data
@@ -34,13 +39,13 @@ services:
       dockerfile: Dockerfile
     environment:
       APP_SQLITE_PATH: /data/app.sqlite3
+      DATABASE_URL: ${DATABASE_URL:-}
+    # DATABASE_URL 이 비어 있으면 SQLite (--db-path), 설정되어 있으면 DATABASE_URL 사용
     command:
       [
         "python",
         "-m",
         "nemotron_ab.worker_main",
-        "--db-path",
-        "/data/app.sqlite3",
         "--poll-interval-sec",
         "2",
         "--max-jobs-per-tick",
@@ -56,5 +61,27 @@ services:
     depends_on:
       - api
 
+  # Postgres 컨테이너 (옵션). `docker compose --profile postgres up` 으로 활성화.
+  # 사용 예시:
+  #   export DATABASE_URL=postgresql+psycopg://nemotron:nemotron@postgres:5432/nemotron
+  #   docker compose --profile postgres up
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["postgres"]
+    environment:
+      POSTGRES_DB: nemotron
+      POSTGRES_USER: nemotron
+      POSTGRES_PASSWORD: nemotron
+    ports:
+      - "5432:5432"
+    volumes:
+      - nemotron-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nemotron -d nemotron"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   nemotron-data:
+  nemotron-postgres:

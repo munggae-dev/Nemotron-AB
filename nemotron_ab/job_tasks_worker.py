@@ -37,7 +37,7 @@ def _finalize_llm_personas_and_tasks(conn, job_id: int, payload: Dict[str, Any])
     """상태가 preparing인 작업만: Chroma 검색 → llm_score 태스크 적재 → status=pending."""
     from nemotron_ab.services.validator_runner import _retrieve_filtered_personas
 
-    row = conn.execute("SELECT status FROM jobs WHERE id=?", (job_id,)).fetchone()
+    row = db.fetch_job(conn, job_id)
     if row is None or str(row["status"]) != "preparing":
         return
 
@@ -67,11 +67,7 @@ def _finalize_llm_personas_and_tasks(conn, job_id: int, payload: Dict[str, Any])
             {"persona_row": persona_row, "campaign": campaign},
         )
 
-    conn.execute(
-        "UPDATE jobs SET status='pending' WHERE id=? AND status='preparing'",
-        (job_id,),
-    )
-    conn.commit()
+    db.transition_job_status(conn, job_id, from_status="preparing", to_status="pending")
 
     db.add_notification(
         conn,
@@ -114,16 +110,12 @@ def _run_llm_score(task_row, conn) -> None:
     persona_row = body["persona_row"]
     campaign = body["campaign"]
 
-    job = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+    job = db.fetch_job(conn, job_id)
     if job is None:
         db.fail_task(conn, task_id, "job not found")
         return
     payload = json.loads(job["payload_json"])
-    conn.execute(
-        "UPDATE jobs SET status='running', started_at=COALESCE(started_at, CURRENT_TIMESTAMP) WHERE id=?",
-        (job_id,),
-    )
-    conn.commit()
+    db.start_job_running(conn, job_id)
 
     persona = mv.normalize_persona_row(persona_row, fallback_id=f"task-{task_id}")
     if persona is None:
@@ -352,7 +344,7 @@ def _persist_aggregated_report(
 
 def reaggregate_completed_job(conn, job_id: int) -> Dict[str, Any]:
     """완료된 작업의 partial JSONL을 다시 읽어 리포트·요약을 재생성합니다(API 재집계용)."""
-    job = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+    job = db.fetch_job(conn, job_id)
     if job is None:
         raise ValueError("job not found")
     if str(job["status"]) != "completed":
@@ -405,7 +397,7 @@ def _maybe_finalize_job(conn, job_id: int) -> None:
         return
 
     failed = db.count_job_tasks(conn, job_id, status="failed")
-    job = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+    job = db.fetch_job(conn, job_id)
     if job is None:
         return
     payload = json.loads(job["payload_json"])

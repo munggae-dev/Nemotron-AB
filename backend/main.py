@@ -540,7 +540,7 @@ def get_job_variant_image(job_id: int, variant: str):
     if vlow not in ("a", "b"):
         raise HTTPException(404, "variant는 a 또는 b입니다")
     with get_conn() as conn:
-        row = conn.execute("SELECT id, payload_json FROM jobs WHERE id=?", (job_id,)).fetchone()
+        row = db.fetch_job_basic(conn, job_id)
     if row is None:
         raise HTTPException(404, "job not found")
     payload = json.loads(row["payload_json"])
@@ -669,10 +669,7 @@ async def clone_job(
     (= GET /jobs/{id} → 수정 → POST /jobs)을 사용한다.
     """
     with get_conn() as conn:
-        row = conn.execute(
-            "SELECT id, title, payload_json FROM jobs WHERE id=?",
-            (job_id,),
-        ).fetchone()
+        row = db.fetch_job_basic(conn, job_id)
     if row is None:
         raise HTTPException(404, "job not found")
     try:

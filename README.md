@@ -90,7 +90,8 @@ npm run dev
 
 | 변수 | 설명 |
 |------|------|
-| `APP_SQLITE_PATH` | SQLite 절대 경로(API·워커 동일 권장). 미설정 시 `nemotron_ab/app.sqlite3` |
+| `DATABASE_URL` | SQLAlchemy DB URL. `sqlite:///{abs}` 또는 `postgresql+psycopg://user:pw@host:port/db`. 설정 시 `APP_SQLITE_PATH` 보다 우선합니다. |
+| `APP_SQLITE_PATH` | SQLite 절대 경로(API·워커 동일 권장). `DATABASE_URL` 미설정 시에만 사용. 미설정 시 `nemotron_ab/app.sqlite3` |
 | `CORS_ORIGINS` | 쉼표 구분 Origin 목록. 미설정 시 `localhost:3000`·`127.0.0.1:3000` |
 | `NEXT_PUBLIC_API_BASE_URL` | **설정 시** 브라우저가 이 URL로 직접 호출(프록시 미사용). 비우면 `/_nemotron_api` 프록시 |
 | `API_INTERNAL_URL` | Next 서버가 FastAPI로 붙을 URL(SSR·rewrite 목적지). 기본 `http://127.0.0.1:8010` |
@@ -112,6 +113,27 @@ docker compose up --build
 - 워커: 동일 이미지로 `nemotron_ab.worker_main` 실행, DB는 볼륨 `nemotron-data`의 `/data/app.sqlite3`
 
 `persona_db`, `outputs`는 호스트 디렉터리를 마운트합니다. 사전에 `persona_db`를 구축해 두어야 검색·평가가 동작합니다.
+
+### Postgres 백엔드 (옵션, Phase 3.2+)
+
+SQLite 대신 PostgreSQL 을 사용하려면 `DATABASE_URL` 만 지정하면 됩니다 — 코드 경로는 동일하게 작동합니다(`db.py` 가 SA Core 호환 wrapper 위에서 dialect-agnostic SQL 을 사용).
+
+```bash
+# 1) Postgres 컨테이너 띄우기 (compose 프로파일 활용)
+docker compose --profile postgres up -d postgres
+
+# 2) 의존성 설치 (psycopg)
+pip install -e .[postgres]
+
+# 3) DATABASE_URL 설정 (API/워커가 모두 따라감)
+export DATABASE_URL='postgresql+psycopg://nemotron:nemotron@127.0.0.1:5432/nemotron'
+
+# 4) 평소처럼 API/워커 실행
+uvicorn backend.main:app --reload --port 8010 &
+python -m nemotron_ab.worker_main --poll-interval-sec 2 --task-parallelism 2 &
+```
+
+호환 검증: `pytest -m needs_postgres` (DATABASE_URL 이 PG 이고 psycopg 가 설치된 경우에만 동작).
 
 ## 데이터 준비
 

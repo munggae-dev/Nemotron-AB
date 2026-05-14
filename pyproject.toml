@@ -75,4 +75,5 @@ markers = [
     "integration: requires external services (uvicorn worker / Ollama / persona_db). Run with: pytest -m integration",
     "needs_ollama: requires a reachable Ollama at $LLM_BASE_URL or http://localhost:11434/v1",
     "needs_persona_db: requires persona_db/ ChromaDB built locally",
+    "needs_postgres: requires DATABASE_URL=postgresql+psycopg://… and psycopg installed. Run with: pytest -m needs_postgres",
 ]

@@ -358,6 +358,50 @@ def fetch_job_result(conn: ConnectionLike, job_id: int) -> Optional[Any]:
     return cur.fetchone()
 
 
+def fetch_job_basic(conn: ConnectionLike, job_id: int) -> Optional[Any]:
+    """ID/제목/payload_json 만 가벼이 조회 (이미지 등 payload 필드 접근용)."""
+    cur = conn.execute(
+        "SELECT id, title, payload_json FROM jobs WHERE id=?",
+        (job_id,),
+    )
+    return cur.fetchone()
+
+
+def fetch_job(conn: ConnectionLike, job_id: int) -> Optional[Any]:
+    """단일 job 행 전체 조회. status/payload_json/started_at 등 모든 컬럼 포함."""
+    cur = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,))
+    return cur.fetchone()
+
+
+def transition_job_status(
+    conn: ConnectionLike,
+    job_id: int,
+    *,
+    from_status: str,
+    to_status: str,
+) -> bool:
+    """조건부 상태 전이 (예: preparing→pending). 성공 시 True."""
+    cur = conn.execute(
+        "UPDATE jobs SET status=? WHERE id=? AND status=?",
+        (to_status, job_id, from_status),
+    )
+    conn.commit()
+    return int(cur.rowcount or 0) > 0
+
+
+def start_job_running(conn: ConnectionLike, job_id: int) -> None:
+    """job 을 running 으로 표시하고 started_at 을 (없을 때만) 기록.
+
+    완료/실패 상태인 job 도 status 만 다시 running 으로 덮어쓰지 않도록 호출자가
+    상태를 사전 확인해야 한다 — 본 함수는 단순 UPDATE 만 수행한다.
+    """
+    conn.execute(
+        "UPDATE jobs SET status='running', started_at=COALESCE(started_at, CURRENT_TIMESTAMP) WHERE id=?",
+        (job_id,),
+    )
+    conn.commit()
+
+
 def insert_job_task(
     conn: ConnectionLike,
     job_id: int,
