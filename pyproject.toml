@@ -70,4 +70,9 @@ extend-exclude = "/(frontend|outputs|persona_db|venv|data)/"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra"
+addopts = "-ra -m 'not integration'"
+markers = [
+    "integration: requires external services (uvicorn worker / Ollama / persona_db). Run with: pytest -m integration",
+    "needs_ollama: requires a reachable Ollama at $LLM_BASE_URL or http://localhost:11434/v1",
+    "needs_persona_db: requires persona_db/ ChromaDB built locally",
+]
