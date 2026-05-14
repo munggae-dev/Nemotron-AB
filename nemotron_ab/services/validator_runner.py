@@ -286,6 +286,7 @@ def run_validator(job_id: int, payload: Dict) -> Tuple[Path, Path, Dict]:
     output_dir = job_dir / "result"
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    evaluator = str(payload.get("evaluator") or "mock")
     cmd = [
         _resolve_python_executable(),
         str(SCRIPT_PATH),
@@ -296,18 +297,21 @@ def run_validator(job_id: int, payload: Dict) -> Tuple[Path, Path, Dict]:
         "--campaign-file",
         str(campaign_file),
         "--profile",
-        payload["profile"],
+        payload.get("profile") or "small",
         "--output-dir",
         str(output_dir),
         "--evaluator",
-        payload["evaluator"],
-        "--ollama-model",
-        payload["ollama_model"],
+        evaluator,
         "--eval-concurrency",
-        str(payload["eval_concurrency"]),
+        str(payload.get("eval_concurrency") or 2),
         "--max-personas",
         str(max_personas),
     ]
+    # ollama 경로일 때만 모델 정보를 전달. llm_model 우선, 레거시 ollama_model 폴백.
+    if evaluator == "ollama":
+        llm_model = str(payload.get("llm_model") or payload.get("ollama_model") or "").strip()
+        if llm_model:
+            cmd.extend(["--ollama-model", llm_model])
     completed = _run_ab_validator_subprocess(cmd)
     if completed.returncode != 0:
         if _subprocess_stream_output():

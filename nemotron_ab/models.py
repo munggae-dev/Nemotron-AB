@@ -19,7 +19,8 @@ class JobPayload:
     context: str
     profile: str
     evaluator: str
-    ollama_model: str
+    llm_base_url: str
+    llm_model: str
     max_personas: int
     retrieval_k_per_bucket: int
     eval_concurrency: int
