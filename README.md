@@ -9,22 +9,30 @@
 - 19~59세 페르소나 필터·연령 버킷(20s/30s/40s/50s, 19세는 20s) 분석
 - 벡터 DB(Chroma) 기반 페르소나 검색 (`retrieval_k_per_bucket` 로 후보 수 조절)
 - 단문·이미지 A/B: 변형마다 텍스트만/이미지만/복합 가능 (공개 URL 또는 업로드)
-- 평가기 선택: `mock` 또는 로컬 Ollama LLM (LangChain `ChatOllama`, 멀티모달 가능)
-- Next.js (`frontend`) + FastAPI (`backend`) UI/API + SQLite 큐 + 워커
+- **OpenAI 호환 LLM 추상화**: `mock` 또는 OpenAI 호환 엔드포인트 (Ollama `/v1` · OpenAI 등) 를 동일 코드 경로로 사용. 멀티모달 지원
+- **토큰 사용량 추적**: 평가마다 `prompt/completion/total` 토큰 수를 저장하고 job 단위로 집계하여 응답·UI 에 노출
+- **프롬프트 프로파일** (`full` / `compact`) + 페르소나/컨텍스트 길이 가드 — 토큰 절감과 안정성
+- **DB 백엔드 선택**: 기본 SQLite, `DATABASE_URL=postgresql+psycopg://…` 로 PostgreSQL 도 동일 코드 경로
+- Next.js (`frontend`) + FastAPI (`backend`) UI/API + RDB 큐 + 워커
 - 작업 완료·실패 알림과 보고서(JSON/Markdown) 자동 생성
 
 ## 문서
 
-- [프로젝트 개요](docs/project-overview.md) — 아키텍처(Web/API/워커/SQLite), 데이터 파이프라인, 모듈 진입점
+- [프로젝트 개요](docs/project-overview.md) — 아키텍처(Web/API/워커/RDB/LLM), 데이터 파이프라인, 모듈 진입점
+- [데이터베이스](docs/database.md) — `DATABASE_URL` · SQLite ↔ PostgreSQL · SA wrapper · 마이그레이션
+- [LLM 프로바이더](docs/llm-providers.md) — OpenAI 호환 엔드포인트 · 토큰 사용량 · 프롬프트 프로파일
 - [페르소나 벡터 DB 메타데이터](docs/vectordb-metadata.md) — Chroma 필드·임베딩 문구·`where`·API 연계·재빌드
+- [테스트 안내](tests/README.md) — 단위/통합/PG smoke 구조 및 pytest 마커
 - [CONTRIBUTING](CONTRIBUTING.md) — 개발 환경, 코드 스타일, 커밋·PR 규약
 - [데이터 디렉터리](data/README.md) — 대용량 데이터셋·벡터 DB 생성 가이드
+- [CHANGELOG](CHANGELOG.md) — 변경 이력
 
 ## 환경 요구사항
 
 - Python 3.11+
 - Node.js 20+ (Next 로컬 개발 시)
-- Ollama (실평가 시)
+- LLM: 로컬 Ollama 또는 OpenAI 호환 엔드포인트 (실평가 시)
+- (옵션) PostgreSQL 14+ — `DATABASE_URL` 로 전환 시
 - CUDA GPU 권장(없어도 CPU 동작 가능)
 
 ## 빠른 시작 (권장: 웹 + API)
