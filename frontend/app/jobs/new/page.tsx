@@ -4,19 +4,17 @@ import { useEffect, useMemo, useState } from "react";
 import type { KoreaRegions, MetaPersonaFilters, PersonaPopulationEstimate } from "@/lib/api";
 import { apiGet, apiPost, apiUploadJobAsset, type JobRow } from "@/lib/api";
 
-const DRAFT_STORAGE_KEY = "nemotron-new-job-draft-v8";
+const DRAFT_STORAGE_KEY = "nemotron-new-job-draft-v9";
 
 type VariantFields = {
-  headline: string;
-  body: string;
-  cta: string;
+  text: string;
   image_url: string;
   /** POST /jobs/assets 응답 staging 참조 */
   image_asset_ref: string | null;
 };
 
 function composeVariantText(v: VariantFields): string {
-  return [v.headline, v.body, v.cta].map((s) => s.trim()).filter(Boolean).join("\n\n");
+  return v.text.trim();
 }
 
 function variantHasVisual(variant: VariantFields): boolean {
@@ -32,7 +30,7 @@ function imagePayloadFromVariant(v: VariantFields): { type: string; value: strin
 }
 
 function VariantPreview({ variant, emptyLabel }: { variant: VariantFields; emptyLabel: string }) {
-  const hasText = variant.headline.trim() || variant.body.trim() || variant.cta.trim();
+  const hasText = variant.text.trim().length > 0;
   const hasVisual = variantHasVisual(variant);
   if (!hasText && !hasVisual) {
     return (
@@ -58,21 +56,13 @@ function VariantPreview({ variant, emptyLabel }: { variant: VariantFields; empty
           파일 업로드됨 (접수 후 미리보기 제공)
         </div>
       ) : null}
-      {variant.headline.trim() ? <h4>{variant.headline}</h4> : null}
-      {variant.body.trim() ? <p>{variant.body}</p> : null}
-      {variant.cta.trim() ? (
-        <button type="button" className="preview-cta">
-          {variant.cta}
-        </button>
-      ) : null}
+      {hasText ? <p style={{ whiteSpace: "pre-wrap" }}>{variant.text}</p> : null}
     </div>
   );
 }
 
 const defaultVariant = (): VariantFields => ({
-  headline: "",
-  body: "",
-  cta: "",
+  text: "",
   image_url: "",
   image_asset_ref: null,
 });
@@ -250,7 +240,7 @@ export default function NewJobPage() {
           title: `${String(payload.title ?? j.title ?? "복제 작업")} (복제)`,
           variant_a: {
             ...defaultVariant(),
-            body: String(payload.text_a ?? payload.copy_a ?? ""),
+            text: String(payload.text_a ?? payload.copy_a ?? ""),
             image_url:
               imageA && String(imageA.type ?? "") === "url" ? String(imageA.value ?? "") : "",
             image_asset_ref:
@@ -258,7 +248,7 @@ export default function NewJobPage() {
           },
           variant_b: {
             ...defaultVariant(),
-            body: String(payload.text_b ?? payload.copy_b ?? ""),
+            text: String(payload.text_b ?? payload.copy_b ?? ""),
             image_url:
               imageB && String(imageB.type ?? "") === "url" ? String(imageB.value ?? "") : "",
             image_asset_ref:
@@ -346,7 +336,7 @@ export default function NewJobPage() {
     const img_a = imagePayloadFromVariant(form.variant_a);
     const img_b = imagePayloadFromVariant(form.variant_b);
     if ((!text_a && !img_a) || (!text_b && !img_b)) {
-      setErr("각 변형마다 텍스트(헤드라인·본문·CTA) 또는 이미지(URL/파일 업로드) 중 하나 이상 필요합니다.");
+      setErr("각 변형마다 텍스트 또는 이미지(URL/파일 업로드) 중 하나 이상 필요합니다.");
       return;
     }
     if (form.persona_filter.age_min > form.persona_filter.age_max) {
@@ -422,41 +412,15 @@ export default function NewJobPage() {
           <div className="split-panel-inner">
             <div className="split-panel-fields">
               <div>
-                <label className="field-label-human" htmlFor="va-headline">
-                  헤드라인
-                </label>
-                <input
-                  id="va-headline"
-                  type="text"
-                  value={form.variant_a.headline}
-                  onChange={(e) => updateVariant("variant_a", { headline: e.target.value })}
-                  placeholder="예: 오늘부터 당신의 루틴을 바꿔보세요"
-                  autoComplete="off"
-                />
-              </div>
-              <div>
-                <label className="field-label-human" htmlFor="va-body">
-                  본문 텍스트
+                <label className="field-label-human" htmlFor="va-text">
+                  텍스트
                 </label>
                 <textarea
-                  id="va-body"
-                  rows={4}
-                  value={form.variant_a.body}
-                  onChange={(e) => updateVariant("variant_a", { body: e.target.value })}
-                  placeholder="평가 대상 단문을 입력하세요. (예: 제품 설명, 공지 문구, UI 카피 등)"
-                />
-              </div>
-              <div>
-                <label className="field-label-human" htmlFor="va-cta">
-                  CTA 버튼 문구
-                </label>
-                <input
-                  id="va-cta"
-                  type="text"
-                  value={form.variant_a.cta}
-                  onChange={(e) => updateVariant("variant_a", { cta: e.target.value })}
-                  placeholder="예: 무료 체험 신청"
-                  autoComplete="off"
+                  id="va-text"
+                  rows={6}
+                  value={form.variant_a.text}
+                  onChange={(e) => updateVariant("variant_a", { text: e.target.value })}
+                  placeholder="평가 대상 단문을 입력하세요. 헤드라인·본문·CTA 가 한 변형에 모두 포함되어 있다면 줄바꿈으로 구분해도 됩니다. (예: 제품 설명, 공지 문구, UI 카피, 광고 카피 등)"
                 />
               </div>
               <div>
@@ -524,44 +488,16 @@ export default function NewJobPage() {
           <div className="split-panel-inner">
             <div className="split-panel-fields">
               <div>
-                <label className="field-label-human" htmlFor="vb-headline">
-                  헤드라인
-                </label>
-                <input
-                  id="vb-headline"
-                  className="input-variant-b"
-                  type="text"
-                  value={form.variant_b.headline}
-                  onChange={(e) => updateVariant("variant_b", { headline: e.target.value })}
-                  placeholder="챌린저 헤드라인"
-                  autoComplete="off"
-                />
-              </div>
-              <div>
-                <label className="field-label-human" htmlFor="vb-body">
-                  본문 텍스트
+                <label className="field-label-human" htmlFor="vb-text">
+                  텍스트
                 </label>
                 <textarea
-                  id="vb-body"
+                  id="vb-text"
                   className="input-variant-b"
-                  rows={4}
-                  value={form.variant_b.body}
-                  onChange={(e) => updateVariant("variant_b", { body: e.target.value })}
-                  placeholder="비교군 단문을 입력하세요."
-                />
-              </div>
-              <div>
-                <label className="field-label-human" htmlFor="vb-cta">
-                  CTA 버튼 문구
-                </label>
-                <input
-                  id="vb-cta"
-                  className="input-variant-b"
-                  type="text"
-                  value={form.variant_b.cta}
-                  onChange={(e) => updateVariant("variant_b", { cta: e.target.value })}
-                  placeholder="예: 지금 바로 알아보기"
-                  autoComplete="off"
+                  rows={6}
+                  value={form.variant_b.text}
+                  onChange={(e) => updateVariant("variant_b", { text: e.target.value })}
+                  placeholder="비교군 단문을 입력하세요. 헤드라인·본문·CTA 가 한 변형에 모두 포함되어 있다면 줄바꿈으로 구분해도 됩니다."
                 />
               </div>
               <div>

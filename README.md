@@ -70,7 +70,7 @@ python -m nemotron_ab.worker_main --poll-interval-sec 2 --max-jobs-per-tick 1 --
 ```bash
 cd frontend
 cp .env.example .env.local   # 기본은 설정 불필요(프록시 사용). `.env.local`에 옛 `NEXT_PUBLIC_API_BASE_URL=8010`만 있으면 포트포워딩 시 오류가 날 수 있으니 해당 줄을 지우세요.
-npm install
+npm ci
 npm run dev
 ```
 
@@ -313,5 +313,7 @@ python scripts/download_data.py
 2. ~~텍스트 외 이미지 기반 A/B 테스트 지원~~ (업로드·URL·멀티모달 평가·상세 썸네일 반영)
 3. ~~LangChain 기반 파이프라인 구성~~ (1차 반영: `langchain_eval` + 선택적 `langchain_chroma` 검색)
 4. ~~레거시 UI/UX 고도화~~ → Next.js UI로 완전 이전
-5. 단위/통합 테스트 본격 추가 (현재 [tests/](tests/) 디렉터리는 비어 있음)
+5. ~~단위/통합 테스트 본격 추가~~ (단위 61건 + 통합 3건 + `needs_postgres` smoke — [tests/](tests/) 참고)
 6. 평가 도메인별 프롬프트 프리셋(마케팅, 공지, UI 카피 등) 단계적 제공
+7. Apple Silicon (MPS) 임베딩 가속 — `CHROMA_LC_DEVICE` 와 `scripts/build_vectordb.py --device` 에 `mps` 분기 추가, `auto` 기본값을 `cuda > mps > cpu` 우선순위로. M-series 맥에서 임베딩 4~8배 가속 예상.
+8. SQLite ↔ PostgreSQL 데이터 이전 스크립트(`scripts/migrate_sqlite_to_postgres.py`) — 운영 데이터 보존 이전 자동화 (현재는 새 DB 권장).
