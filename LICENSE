@@ -1,0 +1,12 @@
+License: TBD
+
+The code in this repository is provided as-is. A formal open-source license
+(e.g. MIT, Apache-2.0, AGPL-3.0) will be selected before the first tagged release.
+
+Until then, the maintainers retain all rights and no permissions are granted
+for commercial use, redistribution, or derivative works beyond evaluation.
+
+Note on data: Nemotron-Personas-Korea (the upstream dataset accessed via
+scripts/download_data.py) is distributed under CC-BY-4.0 by NVIDIA. Users are
+responsible for complying with that license when handling derived artifacts
+under data/, persona_db/, or outputs/.

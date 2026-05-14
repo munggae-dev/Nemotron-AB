@@ -10,13 +10,12 @@ COPY requirements-docker.txt /app/requirements-docker.txt
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
     && pip install --no-cache-dir -r requirements-docker.txt
 
-COPY app /app/app
-COPY script /app/script
-COPY apps/api /app/apps/api
-COPY apps/__init__.py /app/apps/__init__.py
+COPY nemotron_ab /app/nemotron_ab
+COPY scripts /app/scripts
+COPY backend /app/backend
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 
 EXPOSE 8010
-CMD ["uvicorn", "apps.api.main:app", "--host", "0.0.0.0", "--port", "8010"]
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8010"]

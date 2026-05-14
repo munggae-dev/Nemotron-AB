@@ -1,9 +1,10 @@
 # Python / Node
 __pycache__/
 node_modules/
-apps/web/node_modules/
-apps/web/.next/
-apps/web/.env.local
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+frontend/tsconfig.tsbuildinfo
 *.py[cod]
 *.so
 
@@ -11,23 +12,34 @@ apps/web/.env.local
 venv/
 .venv/
 
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
 # Local runtime artifacts
-app/app.sqlite3
-app/test_*.sqlite3
+nemotron_ab/app.sqlite3
+*.sqlite3
 outputs/
 bench/
 persona_db/
 deploy/
 
+# Environment files
+.env
+.env.local
+!frontend/.env.example
+!.env.example
+
 # Large local data
 target_personas_20_59.jsonl
 *.jsonl
-!script/sample_personas_20_59.jsonl
+!scripts/sample_personas_20_59.jsonl
+!examples/sample_personas_20_59.jsonl
+data/
+!data/README.md
 
 # IDE / OS
 .DS_Store
 .idea/
 .vscode/
-
-# Stitch export
-stitch-*

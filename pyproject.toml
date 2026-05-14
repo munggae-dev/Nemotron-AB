@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nemotron-ab"
+version = "0.1.0"
+description = "Nemotron-Personas-Korea based short-text & image A/B evaluation toolkit (FastAPI + Next.js + SQLite + worker)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "TBD" }
+authors = [{ name = "Nemotron-AB Maintainers" }]
+keywords = ["nemotron", "personas", "korean", "ab-testing", "llm", "ollama", "chroma", "evaluation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "pydantic>=2.0",
+    "SQLAlchemy>=2.0",
+    "langchain>=0.3.0",
+    "langchain-community>=0.3.0",
+    "langchain-core>=0.3.0",
+    "langchain-chroma>=0.1.0",
+    "langchain-openai>=0.2.0",
+    "chromadb>=0.5.0",
+    "sentence-transformers>=3.0.0",
+    "Pillow>=10.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.6.0",
+    "black>=24.0",
+    "pytest>=8.0",
+]
+gpu = [
+    "torch",
+]
+postgres = [
+    "psycopg[binary]>=3.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/your-org/nemotron-ab"
+Documentation = "https://github.com/your-org/nemotron-ab/tree/main/docs"
+Issues = "https://github.com/your-org/nemotron-ab/issues"
+
+[tool.setuptools]
+packages = ["nemotron_ab", "nemotron_ab.services", "backend"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = ["frontend", "outputs", "persona_db", "venv", "data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501", "B008"]
+
+[tool.black]
+line-length = 110
+target-version = ["py311"]
+extend-exclude = "/(frontend|outputs|persona_db|venv|data)/"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

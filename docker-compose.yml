@@ -13,18 +13,18 @@ services:
       - nemotron-data:/data
       - ./outputs:/app/outputs
       - ./persona_db:/app/persona_db
-      - ./script:/app/script:ro
+      - ./scripts:/app/scripts:ro
 
   web:
     build:
-      context: ./apps/web
+      context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_BASE_URL: http://localhost:8010
+        API_INTERNAL_URL: http://api:8010
     ports:
       - "3000:3000"
     environment:
-      NEXT_PUBLIC_API_BASE_URL: http://localhost:8010
+      API_INTERNAL_URL: http://api:8010
     depends_on:
       - api
 
@@ -38,7 +38,7 @@ services:
       [
         "python",
         "-m",
-        "app.worker_main",
+        "nemotron_ab.worker_main",
         "--db-path",
         "/data/app.sqlite3",
         "--poll-interval-sec",
@@ -52,7 +52,7 @@ services:
       - nemotron-data:/data
       - ./outputs:/app/outputs
       - ./persona_db:/app/persona_db
-      - ./script:/app/script:ro
+      - ./scripts:/app/scripts:ro
     depends_on:
       - api
 
