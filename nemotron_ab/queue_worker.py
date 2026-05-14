@@ -4,23 +4,39 @@ import threading
 import time
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed, wait, FIRST_COMPLETED
 from pathlib import Path
-from typing import Optional, Set
+from typing import Optional, Set, Union
 
 from nemotron_ab import db
+from nemotron_ab.db_engine import DBConnection
 from nemotron_ab.job_tasks_worker import process_one_task
 from nemotron_ab.services.validator_runner import run_validator
 
 
-def _sqlite_main_path(conn: sqlite3.Connection) -> Optional[Path]:
-    cur = conn.execute("PRAGMA database_list")
-    for _seq, name, file_path in cur.fetchall():
-        if name == "main" and file_path:
-            return Path(file_path)
+WorkerTarget = Union[Path, str]
+
+
+def _resolve_worker_target(conn) -> Optional[WorkerTarget]:
+    """스레드 풀에서 새 커넥션을 만들 때 쓸 타깃을 결정.
+
+    - sqlite3.Connection 이면 PRAGMA database_list 로 파일 경로 추출.
+    - DBConnection wrapper 면 SA URL 문자열 (password 포함).
+    """
+    if isinstance(conn, sqlite3.Connection):
+        cur = conn.execute("PRAGMA database_list")
+        for _seq, name, file_path in cur.fetchall():
+            if name == "main" and file_path:
+                return Path(file_path)
+        return None
+    if isinstance(conn, DBConnection):
+        try:
+            return conn.engine.url.render_as_string(hide_password=False)
+        except Exception:  # noqa: BLE001
+            return None
     return None
 
 
-def _process_one_task_with_fresh_conn(db_path: Path) -> Optional[int]:
-    c = db.get_conn(db_path)
+def _process_one_task_with_fresh_conn(target: WorkerTarget) -> Optional[int]:
+    c = db.get_conn(target)
     db.init_db(c)
     try:
         return process_one_task(c)
@@ -77,7 +93,7 @@ def run_worker_loop(
     - stop_event가 set 되면 in-flight 완료 후 종료
     """
     tp = max(1, min(8, int(task_parallelism)))
-    db_path = _sqlite_main_path(conn)
+    db_path = _resolve_worker_target(conn)
     if db_path is None or tp <= 1:
         while stop_event is None or not stop_event.is_set():
             processed = run_worker_tick(conn=conn, max_jobs=1, task_parallelism=1)
@@ -151,7 +167,7 @@ def run_worker_tick(
     동시에 여러 `llm_score` 태스크를 소비합니다(Ollama I/O 병렬).
     """
     processed = 0
-    db_path = _sqlite_main_path(conn)
+    db_path = _resolve_worker_target(conn)
     tp = max(1, min(8, int(task_parallelism)))
 
     for _ in range(max_jobs):

@@ -120,7 +120,7 @@ def _run_llm_score(task_row, conn) -> None:
         return
     payload = json.loads(job["payload_json"])
     conn.execute(
-        "UPDATE jobs SET status='running', started_at=COALESCE(started_at, datetime('now')) WHERE id=?",
+        "UPDATE jobs SET status='running', started_at=COALESCE(started_at, CURRENT_TIMESTAMP) WHERE id=?",
         (job_id,),
     )
     conn.commit()

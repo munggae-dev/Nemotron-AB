@@ -1,6 +1,8 @@
-"""Phase 3.1: db_engine URL 해석 + 환경변수 우선순위 + sqlite 연결 검증.
+"""Phase 3.1/3.2: db_engine URL 해석 + 환경변수 우선순위 + sqlite 연결 검증.
 
-Postgres 본격 지원은 Phase 3.2 에서 (postgres URL 은 NotImplementedError 검증만).
+Phase 3.2 부터는 DBConnection wrapper 가 sqlite3.Connection 호환 인터페이스를
+제공하므로, sqlite engine 위에서도 wrapper 경로 (RETURNING/RowWrapper/
+executescript multi-statement/`?` paramstyle 변환) 가 검증된다.
 """
 from __future__ import annotations
 
@@ -126,3 +128,103 @@ def test_default_sqlite_path_prefers_database_url(
     from nemotron_ab import db
 
     assert db.default_sqlite_path() == target
+
+
+# ---------------------------------------------------------------------------
+# Phase 3.2: DBConnection wrapper 통합 검증 (sqlite engine 으로 가상 검증)
+# ---------------------------------------------------------------------------
+
+
+def test_qmark_translation_for_postgres_paramstyle() -> None:
+    from nemotron_ab.db_engine import _translate_qmark
+
+    sql = "SELECT * FROM t WHERE a=? AND b=? AND msg='no ? inside'"
+    out = _translate_qmark(sql, "format")
+    assert out == "SELECT * FROM t WHERE a=%s AND b=%s AND msg='no ? inside'"
+    # qmark 타깃은 그대로 통과
+    assert _translate_qmark(sql, "qmark") == sql
+
+
+def test_db_connection_basic_crud_via_sqlite_engine(tmp_path: Path) -> None:
+    """SQLite engine 위에서 DBConnection wrapper 가 sqlite3.Connection 호환으로 동작."""
+    from nemotron_ab import db
+    from nemotron_ab.db_engine import DBConnection, make_engine
+
+    engine = make_engine(f"sqlite:///{tmp_path / 'wrap.db'}")
+    conn = DBConnection(engine)
+    try:
+        db.init_db(conn)
+        jid = db.enqueue_job(conn, "wrapped", {"k": "v"})
+        assert isinstance(jid, int) and jid > 0
+
+        rows = db.fetch_jobs(conn)
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["title"] == "wrapped"
+        # row[int] 도 지원
+        assert row[2] == "wrapped"
+        # dict(row) 호환
+        d = dict(row)
+        assert d["status"] == "pending"
+    finally:
+        conn.close()
+
+
+def test_db_connection_insert_returning_lastrowid(tmp_path: Path) -> None:
+    """INSERT ... RETURNING id 가 cursor.lastrowid 로 자동 노출되는지."""
+    from nemotron_ab.db_engine import DBConnection, make_engine
+
+    engine = make_engine(f"sqlite:///{tmp_path / 'ret.db'}")
+    conn = DBConnection(engine)
+    try:
+        conn.execute(
+            "CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)"
+        )
+        conn.commit()
+        cur = conn.execute(
+            "INSERT INTO t(name) VALUES(?) RETURNING id", ("alpha",)
+        )
+        assert cur.lastrowid == 1
+        cur2 = conn.execute(
+            "INSERT INTO t(name) VALUES(?) RETURNING id", ("beta",)
+        )
+        assert cur2.lastrowid == 2
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def test_db_connection_executescript_multi_statement(tmp_path: Path) -> None:
+    from nemotron_ab.db_engine import DBConnection, make_engine
+
+    engine = make_engine(f"sqlite:///{tmp_path / 'script.db'}")
+    conn = DBConnection(engine)
+    try:
+        conn.executescript(
+            """
+            CREATE TABLE a (id INTEGER);
+            CREATE TABLE b (id INTEGER);
+            INSERT INTO a(id) VALUES(1);
+            INSERT INTO b(id) VALUES(2);
+            """
+        )
+        conn.commit()
+        rows = conn.execute("SELECT a.id, b.id FROM a, b").fetchall()
+        assert len(rows) == 1
+        assert int(rows[0][0]) == 1 and int(rows[0][1]) == 2
+    finally:
+        conn.close()
+
+
+def test_postgres_url_routes_to_make_engine() -> None:
+    """PG URL 은 get_conn 에서 make_db_connection 경로로 라우팅되어야 한다.
+
+    실제 PG 서버나 psycopg 드라이버가 없어도 *시도* 자체는 일어나야 한다
+    (`make_sqlite_connection` 의 NotImplementedError 가 아닌 다른 예외가 나야 함).
+    """
+    from nemotron_ab import db
+
+    with pytest.raises(Exception) as excinfo:
+        db.get_conn("postgresql+psycopg://u:p@127.0.0.1:1/none")
+    # 라우팅이 sqlite 거절 경로로 빠지지 않았음을 확인.
+    assert not isinstance(excinfo.value, NotImplementedError) or "Phase" not in str(excinfo.value)
