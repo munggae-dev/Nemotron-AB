@@ -9,12 +9,17 @@ from nemotron_ab.queue_worker import run_worker_loop, run_worker_tick
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-DEFAULT_DB_PATH = ROOT_DIR / "nemotron_ab" / "app.sqlite3"
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="SQLite 작업 큐 백그라운드 워커")
-    parser.add_argument("--db-path", type=Path, default=DEFAULT_DB_PATH)
+    parser = argparse.ArgumentParser(description="A/B 평가 작업 큐 백그라운드 워커")
+    # 미지정 시 db.default_sqlite_path() 가 DATABASE_URL/APP_SQLITE_PATH/기본 경로 순으로 해석
+    parser.add_argument(
+        "--db-path",
+        type=Path,
+        default=None,
+        help="SQLite 파일 경로. 미지정 시 DATABASE_URL → APP_SQLITE_PATH → 저장소 기본 순.",
+    )
     parser.add_argument("--poll-interval-sec", type=float, default=2.0)
     parser.add_argument("--max-jobs-per-tick", type=int, default=1)
     parser.add_argument(
@@ -29,10 +34,11 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    conn = db.get_conn(args.db_path)
+    db_path = args.db_path if args.db_path is not None else db.default_sqlite_path()
+    conn = db.get_conn(db_path)
     db.init_db(conn)
     print(
-        f"[worker] started db={args.db_path} interval={args.poll_interval_sec}s "
+        f"[worker] started db={db_path} interval={args.poll_interval_sec}s "
         f"max_jobs_per_tick={args.max_jobs_per_tick} task_parallelism={args.task_parallelism}"
     )
     if args.once:

@@ -1,20 +1,47 @@
 import json
+import os
 import sqlite3
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
+
+from nemotron_ab.db_engine import (
+    ENV_DATABASE_URL,
+    is_sqlite,
+    make_sqlite_connection,
+    resolve_database_url,
+    sqlite_path_from_url,
+)
 
 
 def default_sqlite_path() -> Path:
-    """환경변수 APP_SQLITE_PATH 또는 저장소 기본 app/app.sqlite3."""
-    import os
+    """환경변수 APP_SQLITE_PATH 또는 저장소 기본 app/app.sqlite3.
 
+    참고: 우선순위가 더 높은 `DATABASE_URL` 이 있고 그것이 sqlite URL 이면, 그쪽 경로를 반환한다.
+    """
+    env_url = os.environ.get(ENV_DATABASE_URL, "").strip()
+    if env_url and is_sqlite(env_url):
+        return sqlite_path_from_url(env_url)
     raw = os.environ.get("APP_SQLITE_PATH", "").strip()
     repo_root = Path(__file__).resolve().parents[1]
     return Path(raw) if raw else repo_root / "nemotron_ab" / "app.sqlite3"
 
 
-def get_conn(db_path: Path) -> sqlite3.Connection:
-    conn = sqlite3.connect(str(db_path), check_same_thread=False)
+def get_conn(db_path: Optional[Union[Path, str]] = None) -> sqlite3.Connection:
+    """SQLite DBAPI 커넥션을 반환한다.
+
+    Phase 3.1 호환 경로:
+      - 인자 없으면 `DATABASE_URL` 환경변수 → `APP_SQLITE_PATH` → 기본 경로 순으로 해석.
+      - Path / str 경로면 그 sqlite 파일을 직접 연결 (기존 동작 보존).
+      - sqlite:// URL 문자열도 받는다.
+      - 비-sqlite URL 은 NotImplementedError (Postgres 는 Phase 3.2).
+    """
+    if db_path is None:
+        return make_sqlite_connection()
+    if isinstance(db_path, str) and "://" in db_path:
+        return make_sqlite_connection(db_path)
+    path = Path(db_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(path), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
