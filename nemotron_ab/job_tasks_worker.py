@@ -16,6 +16,10 @@ from nemotron_ab import db
 from nemotron_ab.campaign_assets import normalize_job_payload_images
 from nemotron_ab.langchain_eval import evaluate_persona_langchain
 from nemotron_ab.llm_provider import resolve_llm_config
+from nemotron_ab.prompt_profile import (
+    default_max_persona_chars,
+    resolve_prompt_profile,
+)
 from nemotron_ab.services.validator_runner import OUTPUT_BASE, _make_campaign_payload
 
 from scripts import ab_validator as mv
@@ -129,10 +133,8 @@ def _run_llm_score(task_row, conn) -> None:
     evaluator = str(payload.get("evaluator", "mock"))
     mw = mv.DEFAULT_METRIC_WEIGHTS.copy()
     seed = int(payload.get("seed", 42))
-    max_reason = int(payload.get("max_reason_chars", 80))
     llm_base_url = str(payload.get("llm_base_url") or "").strip() or None
     llm_model = str(payload.get("llm_model") or "").strip() or None
-    response_format_json = bool(payload.get("response_format_json", False))
     image_max_dim_raw = payload.get("image_max_dim")
     image_max_dim: Optional[int] = None
     if image_max_dim_raw is not None:
@@ -148,8 +150,27 @@ def _run_llm_score(task_row, conn) -> None:
             return [str(x) for x in v]
         return None
 
-    persona_fields = _as_str_list(payload.get("persona_fields_for_prompt"))
-    persona_drop_fields = _as_str_list(payload.get("persona_drop_fields"))
+    # prompt_profile 해석: compact 는 핵심 필드만 / reason 상한 / JSON 강제
+    resolved = resolve_prompt_profile(
+        payload.get("prompt_profile"),
+        user_max_reason_chars=int(payload.get("max_reason_chars", 80)),
+        user_response_format_json=bool(payload.get("response_format_json", False)),
+        user_persona_fields=_as_str_list(payload.get("persona_fields_for_prompt")),
+        user_persona_drop_fields=_as_str_list(payload.get("persona_drop_fields")),
+    )
+    persona_fields = resolved.persona_fields
+    persona_drop_fields = resolved.persona_drop_fields
+    max_reason = resolved.max_reason_chars
+    response_format_json = resolved.response_format_json
+
+    # 페르소나 JSON 길이 캡 (payload 우선, 미지정 시 환경 기본값)
+    raw_persona_cap = payload.get("max_persona_chars")
+    try:
+        max_persona_chars = int(raw_persona_cap) if raw_persona_cap is not None else default_max_persona_chars()
+    except (TypeError, ValueError):
+        max_persona_chars = default_max_persona_chars()
+    if max_persona_chars <= 0:
+        max_persona_chars = default_max_persona_chars()
 
     max_attempts = int(payload.get("llm_retry_attempts", 3))
     infra_keywords = (
@@ -190,6 +211,7 @@ def _run_llm_score(task_row, conn) -> None:
                     persona_fields=persona_fields,
                     persona_drop_fields=persona_drop_fields,
                     response_format_json=response_format_json,
+                    max_persona_chars=max_persona_chars,
                 )
             break
         except Exception as e:  # noqa: BLE001

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { KoreaRegions, MetaPersonaFilters, PersonaPopulationEstimate } from "@/lib/api";
 import { apiGet, apiPost, apiUploadJobAsset, type JobRow } from "@/lib/api";
 
-const DRAFT_STORAGE_KEY = "nemotron-new-job-draft-v7";
+const DRAFT_STORAGE_KEY = "nemotron-new-job-draft-v8";
 
 type VariantFields = {
   headline: string;
@@ -87,6 +87,9 @@ const defaultForm = {
   llm_base_url: "http://localhost:11434/v1",
   llm_model: "gemma3:4b-it-qat",
   response_format_json: false,
+  prompt_profile: "full" as "full" | "compact",
+  max_persona_chars: 1500,
+  max_context_chars: 4000,
   max_personas: 24,
   retrieval_k_per_bucket: 80,
   eval_concurrency: 2,
@@ -275,6 +278,12 @@ export default function NewJobPage() {
             typeof payload.response_format_json === "boolean"
               ? payload.response_format_json
               : defaultForm.response_format_json,
+          prompt_profile: ((): "full" | "compact" => {
+            const v = String(payload.prompt_profile ?? "").toLowerCase();
+            return v === "compact" ? "compact" : "full";
+          })(),
+          max_persona_chars: Number(payload.max_persona_chars ?? defaultForm.max_persona_chars),
+          max_context_chars: Number(payload.max_context_chars ?? defaultForm.max_context_chars),
           max_personas: Number(payload.max_personas ?? defaultForm.max_personas),
           retrieval_k_per_bucket: Number(payload.retrieval_k_per_bucket ?? defaultForm.retrieval_k_per_bucket),
           eval_concurrency: Number(payload.eval_concurrency ?? defaultForm.eval_concurrency),
@@ -956,10 +965,54 @@ export default function NewJobPage() {
               id="response_format_json"
               checked={form.response_format_json}
               onChange={(e) => setForm({ ...form, response_format_json: e.target.checked })}
+              disabled={form.prompt_profile === "compact"}
             />
             <label htmlFor="response_format_json" style={{ marginBottom: 0, textTransform: "none", letterSpacing: "normal" }}>
               JSON 응답 강제 (`response_format`) — OpenAI 계열만 지원. 미지원 모델에서는 무시되거나 오류 가능.
+              {form.prompt_profile === "compact" ? (
+                <span className="muted small"> · compact 프로파일에서는 자동으로 켜집니다.</span>
+              ) : null}
             </label>
+          </div>
+
+          <div className="row cols-3" style={{ marginTop: 16 }}>
+            <div>
+              <label>프롬프트 프로파일</label>
+              <select
+                value={form.prompt_profile}
+                onChange={(e) => setForm({ ...form, prompt_profile: e.target.value as "full" | "compact" })}
+              >
+                <option value="full">full — 페르소나 raw, 사용자 설정 우선</option>
+                <option value="compact">compact — 핵심 필드만 (토큰 절감)</option>
+              </select>
+              <small className="hint">
+                compact 는 페르소나를 age/sex/occupation/province/district 로 축약하고 reason 길이를 40자로 캡, JSON 강제.
+              </small>
+            </div>
+            <div>
+              <label>페르소나 길이 상한 (max_persona_chars)</label>
+              <input
+                type="number"
+                min={200}
+                max={10000}
+                step={100}
+                value={form.max_persona_chars}
+                onChange={(e) => setForm({ ...form, max_persona_chars: Number(e.target.value) })}
+              />
+              <small className="hint">프롬프트에 들어가는 페르소나 JSON 문자열 상한.</small>
+            </div>
+            <div>
+              <label>입력 누적 길이 상한 (max_context_chars)</label>
+              <input
+                type="number"
+                min={100}
+                max={20000}
+                step={100}
+                value={form.max_context_chars}
+                onChange={(e) => setForm({ ...form, max_context_chars: Number(e.target.value) })}
+              />
+              <small className="hint">text_a + text_b + context 누적 길이가 이 값을 넘으면 거절.</small>
+            </div>
           </div>
         </div>
       ) : null}

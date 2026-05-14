@@ -77,21 +77,27 @@ class ImageRefIn(BaseModel):
 
 class JobCreate(BaseModel):
     title: str = "신규 A/B 평가"
-    text_a: str = ""
-    text_b: str = ""
+    text_a: str = Field("", max_length=2000)
+    text_b: str = Field("", max_length=2000)
     image_a: Optional[ImageRefIn] = None
     image_b: Optional[ImageRefIn] = None
-    context: str = ""
+    context: str = Field("", max_length=4000)
     profile: str = "small"
     evaluator: str = "mock"
     llm_base_url: str = ""
     llm_model: str = ""
     response_format_json: bool = False
+    prompt_profile: str = "full"
+    """프롬프트 프로파일: 'full' (raw 페르소나) 또는 'compact' (핵심 필드만, 토큰 절감)."""
+    max_persona_chars: int = Field(1500, ge=200, le=10000)
+    """프롬프트에 들어가는 페르소나 JSON 문자열 길이 상한."""
+    max_context_chars: int = Field(4000, ge=100, le=20000)
+    """text_a + text_b + context 누적 길이 상한 (Pydantic max_length 외 통합 가드)."""
     max_personas: int = Field(24, ge=8, le=200)
     retrieval_k_per_bucket: int = Field(80, ge=20, le=500)
     eval_concurrency: int = Field(2, ge=1, le=8)
     seed: int = 42
-    max_reason_chars: int = 80
+    max_reason_chars: int = Field(80, ge=1, le=400)
     use_llm_task_queue: bool = True
     persona_filter: PersonaFilterIn
 
@@ -148,18 +154,39 @@ def _validate_nemotron_persona_filter_enums(pf: Mapping[str, Any]) -> None:
 def _payload_from_create(body: JobCreate) -> Dict[str, Any]:
     img_a = _optional_image_payload(body.image_a)
     img_b = _optional_image_payload(body.image_b)
+    text_a = body.text_a.strip()
+    text_b = body.text_b.strip()
+    context = body.context.strip()
+    # 누적 가드: 개별 필드 max_length 와 별개로 합계도 한도를 넘지 않도록.
+    total_len = len(text_a) + len(text_b) + len(context)
+    if total_len > body.max_context_chars:
+        raise HTTPException(
+            400,
+            f"text_a + text_b + context 누적 길이({total_len}) 가 max_context_chars({body.max_context_chars}) 를 초과합니다.",
+        )
+    from nemotron_ab.prompt_profile import VALID_PROFILES
+
+    profile_name = str(body.prompt_profile or "full").strip().lower()
+    if profile_name not in VALID_PROFILES:
+        raise HTTPException(
+            400,
+            f"prompt_profile 은 {VALID_PROFILES} 중 하나여야 합니다 (입력: {body.prompt_profile!r}).",
+        )
     return {
         "title": body.title,
-        "text_a": body.text_a.strip(),
-        "text_b": body.text_b.strip(),
+        "text_a": text_a,
+        "text_b": text_b,
         "image_a": img_a,
         "image_b": img_b,
-        "context": body.context.strip(),
+        "context": context,
         "profile": body.profile,
         "evaluator": body.evaluator,
         "llm_base_url": body.llm_base_url.strip().rstrip("/"),
         "llm_model": body.llm_model.strip(),
         "response_format_json": bool(body.response_format_json),
+        "prompt_profile": profile_name,
+        "max_persona_chars": int(body.max_persona_chars),
+        "max_context_chars": int(body.max_context_chars),
         "max_personas": body.max_personas,
         "retrieval_k_per_bucket": body.retrieval_k_per_bucket,
         "eval_concurrency": body.eval_concurrency,

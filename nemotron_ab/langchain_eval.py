@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from nemotron_ab.campaign_assets import image_ref_to_data_url
 from nemotron_ab.llm_provider import LLMConfig, extract_usage, make_chat_llm, resolve_llm_config
+from nemotron_ab.prompt_profile import truncate_persona_view
 
 from scripts.ab_validator import (
     Persona,
@@ -83,6 +84,7 @@ def evaluate_persona_langchain(
     persona_fields: Optional[List[str]] = None,
     persona_drop_fields: Optional[List[str]] = None,
     response_format_json: bool = False,
+    max_persona_chars: Optional[int] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, int]]:
     """페르소나 1건에 대한 A/B 평가 호출.
 
@@ -99,6 +101,8 @@ def evaluate_persona_langchain(
         fields=persona_fields,
         drop_keys=persona_drop_fields,
     )
+    if max_persona_chars is not None and max_persona_chars > 0 and isinstance(persona_view, dict):
+        persona_view = truncate_persona_view(persona_view, max_chars=max_persona_chars)
     if campaign_has_images(campaign):
         parts = _multimodal_message_content(
             persona=persona,
