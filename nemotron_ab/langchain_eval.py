@@ -6,12 +6,11 @@ Ollama 도 `/v1` 경로(예: `http://localhost:11434/v1`)로 같은 인터페이
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from nemotron_ab.campaign_assets import image_ref_to_data_url
 from nemotron_ab.llm_provider import LLMConfig, extract_usage, make_chat_llm, resolve_llm_config
 from nemotron_ab.prompt_profile import truncate_persona_view
-
 from scripts.ab_validator import (
     Persona,
     _extract_json_object,
@@ -26,12 +25,12 @@ from scripts.ab_validator import (
 
 def _multimodal_message_content(
     persona: Persona,
-    campaign: Dict[str, Any],
-    metrics: Dict[str, float],
+    campaign: dict[str, Any],
+    metrics: dict[str, float],
     max_reason_chars: int,
-    image_max_dim: Optional[int] = None,
-    persona_view: Optional[Dict[str, Any]] = None,
-) -> List[Dict[str, Any]]:
+    image_max_dim: int | None = None,
+    persona_view: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     json_schema = build_eval_json_schema(metrics, max_reason_chars)
     metric_keys = ", ".join(metrics.keys())
     intro = (
@@ -54,7 +53,7 @@ def _multimodal_message_content(
         f"[텍스트 A]\n{text_a}",
         f"[텍스트 B]\n{text_b}",
     ]
-    order: List[str] = []
+    order: list[str] = []
     if isinstance(campaign.get("image_a"), dict) and str(campaign["image_a"].get("value", "")).strip():
         order.append("A")
     if isinstance(campaign.get("image_b"), dict) and str(campaign["image_b"].get("value", "")).strip():
@@ -64,7 +63,7 @@ def _multimodal_message_content(
         lines.append(f"이 메시지 하단 이미지는 순서대로 안 {joined}의 시각 자료입니다.")
     lines.append(f"[JSON 스키마]\n{json.dumps(json_schema, ensure_ascii=False)}")
     text = "\n".join(lines)
-    content: List[Dict[str, Any]] = [{"type": "text", "text": text}]
+    content: list[dict[str, Any]] = [{"type": "text", "text": text}]
     for key in ("image_a", "image_b"):
         ref = campaign.get(key)
         if isinstance(ref, dict) and str(ref.get("value", "")).strip():
@@ -75,17 +74,17 @@ def _multimodal_message_content(
 
 def evaluate_persona_langchain(
     persona: Persona,
-    campaign: Dict[str, Any],
-    metrics: Dict[str, float],
+    campaign: dict[str, Any],
+    metrics: dict[str, float],
     max_reason_chars: int,
     *,
-    llm_config: Optional[LLMConfig] = None,
-    image_max_dim: Optional[int] = None,
-    persona_fields: Optional[List[str]] = None,
-    persona_drop_fields: Optional[List[str]] = None,
+    llm_config: LLMConfig | None = None,
+    image_max_dim: int | None = None,
+    persona_fields: list[str] | None = None,
+    persona_drop_fields: list[str] | None = None,
     response_format_json: bool = False,
-    max_persona_chars: Optional[int] = None,
-) -> Tuple[Dict[str, Any], Dict[str, int]]:
+    max_persona_chars: int | None = None,
+) -> tuple[dict[str, Any], dict[str, int]]:
     """페르소나 1건에 대한 A/B 평가 호출.
 
     Returns:

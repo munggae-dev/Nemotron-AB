@@ -23,12 +23,12 @@ from __future__ import annotations
 import os
 import re
 import sqlite3
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any
 from urllib.parse import urlparse
 
 from sqlalchemy import Engine, create_engine, event
-
 
 ENV_DATABASE_URL = "DATABASE_URL"
 
@@ -46,7 +46,7 @@ def _default_sqlite_path_from_app() -> Path:
     return Path(__file__).resolve().parents[1] / "nemotron_ab" / "app.sqlite3"
 
 
-def resolve_database_url(url: Optional[str] = None) -> str:
+def resolve_database_url(url: str | None = None) -> str:
     """최종 DB URL 을 결정한다."""
     if url:
         return url.strip()
@@ -81,7 +81,7 @@ def sqlite_path_from_url(url: str) -> Path:
     return Path(raw)
 
 
-def make_engine(url: Optional[str] = None, *, echo: bool = False) -> Engine:
+def make_engine(url: str | None = None, *, echo: bool = False) -> Engine:
     """SA Engine 을 만든다. SQLite 인 경우 외래키 PRAGMA 도 자동 켠다."""
     resolved = resolve_database_url(url)
     connect_args: dict = {}
@@ -100,7 +100,7 @@ def make_engine(url: Optional[str] = None, *, echo: bool = False) -> Engine:
     return engine
 
 
-def make_sqlite_connection(url: Optional[str] = None) -> sqlite3.Connection:
+def make_sqlite_connection(url: str | None = None) -> sqlite3.Connection:
     """SQLite 전용 DBAPI 커넥션 (저수준)."""
     resolved = resolve_database_url(url)
     if not is_sqlite(resolved):
@@ -153,7 +153,7 @@ class RowWrapper(Mapping[str, Any]):
         return list(self._keys)
 
 
-def _wrap_row(row: Any, columns: Sequence[str]) -> Optional[RowWrapper]:
+def _wrap_row(row: Any, columns: Sequence[str]) -> RowWrapper | None:
     if row is None:
         return None
     if isinstance(row, sqlite3.Row):
@@ -177,7 +177,7 @@ def _translate_qmark(sql: str, target: str) -> str:
         return sql
     if target != "format":
         return sql
-    out: List[str] = []
+    out: list[str] = []
     i = 0
     in_squote = False
     while i < len(sql):
@@ -206,9 +206,9 @@ class _CursorView:
     `rowcount`, `lastrowid`, `fetchone()`, `fetchall()`, iter 지원.
     """
 
-    def __init__(self, dbapi_cursor: Any, *, lastrowid: Optional[int] = None) -> None:
+    def __init__(self, dbapi_cursor: Any, *, lastrowid: int | None = None) -> None:
         self._cur = dbapi_cursor
-        self._description_cache: Optional[List[str]] = None
+        self._description_cache: list[str] | None = None
         self._lastrowid = lastrowid
 
     @property
@@ -219,7 +219,7 @@ class _CursorView:
             return -1
 
     @property
-    def lastrowid(self) -> Optional[int]:
+    def lastrowid(self) -> int | None:
         if self._lastrowid is not None:
             return self._lastrowid
         try:
@@ -227,7 +227,7 @@ class _CursorView:
         except Exception:  # noqa: BLE001
             return None
 
-    def _columns(self) -> List[str]:
+    def _columns(self) -> list[str]:
         if self._description_cache is not None:
             return self._description_cache
         desc = getattr(self._cur, "description", None) or []
@@ -235,14 +235,14 @@ class _CursorView:
         self._description_cache = cols
         return cols
 
-    def fetchone(self) -> Optional[RowWrapper]:
+    def fetchone(self) -> RowWrapper | None:
         try:
             row = self._cur.fetchone()
         except Exception:  # noqa: BLE001
             return None
         return _wrap_row(row, self._columns())
 
-    def fetchall(self) -> List[RowWrapper]:
+    def fetchall(self) -> list[RowWrapper]:
         try:
             rows = self._cur.fetchall()
         except Exception:  # noqa: BLE001
@@ -254,13 +254,13 @@ class _CursorView:
         return iter(self.fetchall())
 
 
-def _split_statements(script: str) -> List[str]:
+def _split_statements(script: str) -> list[str]:
     """간단한 SQL script 분할 — 세미콜론 기준, 문자열 리터럴 안의 ; 는 무시.
 
     PRAGMA / CREATE / INDEX 등 단순 DDL 만 다루므로 충분하다.
     """
-    out: List[str] = []
-    buf: List[str] = []
+    out: list[str] = []
+    buf: list[str] = []
     in_squote = False
     for ch in script:
         if ch == "'":
@@ -313,7 +313,7 @@ class DBConnection:
     def _execute_one(
         self,
         sql: str,
-        params: Optional[Union[Sequence[Any], Mapping[str, Any]]] = None,
+        params: Sequence[Any] | Mapping[str, Any] | None = None,
     ) -> _CursorView:
         if not isinstance(sql, str):
             raise TypeError(f"sql 은 str 이어야 합니다: {type(sql)!r}")
@@ -323,7 +323,7 @@ class DBConnection:
             cur.execute(translated)
         else:
             cur.execute(translated, params)
-        lastrowid: Optional[int] = None
+        lastrowid: int | None = None
         if _RETURNING_RE.search(sql):
             try:
                 first = cur.fetchone()
@@ -373,7 +373,7 @@ class DBConnection:
 
     # sqlite3.Connection 와 동일한 context manager 의미: 성공 시 commit, 실패 시 rollback.
     # __exit__ 에서 닫지 않음 (sqlite3 동작 호환).
-    def __enter__(self) -> "DBConnection":
+    def __enter__(self) -> DBConnection:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -383,7 +383,7 @@ class DBConnection:
             self.rollback()
 
 
-def make_db_connection(url: Optional[str] = None) -> DBConnection:
+def make_db_connection(url: str | None = None) -> DBConnection:
     """`DBConnection` 인스턴스 생성 헬퍼."""
     engine = make_engine(url)
     return DBConnection(engine)

@@ -2,20 +2,19 @@ import json
 import sqlite3
 import threading
 import time
-from concurrent.futures import Future, ThreadPoolExecutor, as_completed, wait, FIRST_COMPLETED
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, as_completed, wait
 from pathlib import Path
-from typing import Optional, Set, Union
+from typing import Union
 
 from nemotron_ab import db
 from nemotron_ab.db_engine import DBConnection
 from nemotron_ab.job_tasks_worker import process_one_task
 from nemotron_ab.services.validator_runner import run_validator
 
-
 WorkerTarget = Union[Path, str]
 
 
-def _resolve_worker_target(conn) -> Optional[WorkerTarget]:
+def _resolve_worker_target(conn) -> WorkerTarget | None:
     """스레드 풀에서 새 커넥션을 만들 때 쓸 타깃을 결정.
 
     - sqlite3.Connection 이면 PRAGMA database_list 로 파일 경로 추출.
@@ -35,7 +34,7 @@ def _resolve_worker_target(conn) -> Optional[WorkerTarget]:
     return None
 
 
-def _process_one_task_with_fresh_conn(target: WorkerTarget) -> Optional[int]:
+def _process_one_task_with_fresh_conn(target: WorkerTarget) -> int | None:
     c = db.get_conn(target)
     db.init_db(c)
     try:
@@ -44,7 +43,7 @@ def _process_one_task_with_fresh_conn(target: WorkerTarget) -> Optional[int]:
         c.close()
 
 
-def process_one_job(conn: sqlite3.Connection) -> Optional[int]:
+def process_one_job(conn: sqlite3.Connection) -> int | None:
     job = db.claim_next_pending_job_legacy_only(conn)
     if job is None:
         return None
@@ -82,7 +81,7 @@ def run_worker_loop(
     conn: sqlite3.Connection,
     task_parallelism: int = 1,
     poll_interval_sec: float = 2.0,
-    stop_event: Optional[threading.Event] = None,
+    stop_event: threading.Event | None = None,
     on_processed=None,
 ) -> None:
     """풀을 한 번만 생성해 유지하면서 끝난 슬롯에 즉시 새 태스크를 투입하는 루프.
@@ -106,7 +105,7 @@ def run_worker_loop(
                     time.sleep(poll_interval_sec)
         return
 
-    inflight: Set[Future] = set()
+    inflight: set[Future] = set()
     with ThreadPoolExecutor(max_workers=tp, thread_name_prefix="llm-task") as pool:
         while stop_event is None or not stop_event.is_set():
             while len(inflight) < tp:

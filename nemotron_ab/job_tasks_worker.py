@@ -6,7 +6,7 @@ import shutil
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -21,7 +21,6 @@ from nemotron_ab.prompt_profile import (
     resolve_prompt_profile,
 )
 from nemotron_ab.services.validator_runner import OUTPUT_BASE, _make_campaign_payload
-
 from scripts import ab_validator as mv
 
 
@@ -33,7 +32,7 @@ def _partial_path(job_id: int) -> Path:
     return _job_dir(job_id) / "partial.jsonl"
 
 
-def _finalize_llm_personas_and_tasks(conn, job_id: int, payload: Dict[str, Any]) -> None:
+def _finalize_llm_personas_and_tasks(conn, job_id: int, payload: dict[str, Any]) -> None:
     """상태가 preparing인 작업만: Chroma 검색 → llm_score 태스크 적재 → status=pending."""
     from nemotron_ab.services.validator_runner import _retrieve_filtered_personas
 
@@ -78,7 +77,7 @@ def _finalize_llm_personas_and_tasks(conn, job_id: int, payload: Dict[str, Any])
     )
 
 
-def finalize_llm_enqueue_sync(job_id: int, title: str, payload: Dict[str, Any]) -> None:
+def finalize_llm_enqueue_sync(job_id: int, title: str, payload: dict[str, Any]) -> None:
     """FastAPI BackgroundTasks용: 응답 반환 후 별도 연결로 준비 단계를 마친다."""
     path = db.default_sqlite_path()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -90,7 +89,7 @@ def finalize_llm_enqueue_sync(job_id: int, title: str, payload: Dict[str, Any]) 
         conn.close()
 
 
-def enqueue_job_with_llm_tasks(conn, title: str, payload: Dict[str, Any]) -> int:
+def enqueue_job_with_llm_tasks(conn, title: str, payload: dict[str, Any]) -> int:
     """동기 등록 경로: 즉시 검색·태스크까지 완료한다."""
     job_id = db.enqueue_job(conn, title, payload, status="preparing")
     try:
@@ -128,14 +127,14 @@ def _run_llm_score(task_row, conn) -> None:
     llm_base_url = str(payload.get("llm_base_url") or "").strip() or None
     llm_model = str(payload.get("llm_model") or "").strip() or None
     image_max_dim_raw = payload.get("image_max_dim")
-    image_max_dim: Optional[int] = None
+    image_max_dim: int | None = None
     if image_max_dim_raw is not None:
         try:
             image_max_dim = int(image_max_dim_raw)
         except (TypeError, ValueError):
             image_max_dim = None
 
-    def _as_str_list(v: Any) -> Optional[List[str]]:
+    def _as_str_list(v: Any) -> list[str] | None:
         if v is None:
             return None
         if isinstance(v, (list, tuple)):
@@ -180,9 +179,9 @@ def _run_llm_score(task_row, conn) -> None:
         "timed out",
     )
 
-    r: Optional[Dict[str, Any]] = None
-    usage: Dict[str, int] = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
-    last_err: Optional[Exception] = None
+    r: dict[str, Any] | None = None
+    usage: dict[str, int] = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+    last_err: Exception | None = None
     for attempt in range(1, max_attempts + 1):
         try:
             if evaluator == "mock":
@@ -255,8 +254,8 @@ def _run_llm_score(task_row, conn) -> None:
     _maybe_finalize_job(conn, job_id)
 
 
-def _rows_from_partial_file(path: Path) -> List[Dict[str, Any]]:
-    rows_for_agg: List[Dict[str, Any]] = []
+def _rows_from_partial_file(path: Path) -> list[dict[str, Any]]:
+    rows_for_agg: list[dict[str, Any]] = []
     if not path.exists():
         return rows_for_agg
     with path.open("r", encoding="utf-8") as f:
@@ -274,11 +273,11 @@ def _rows_from_partial_file(path: Path) -> List[Dict[str, Any]]:
 def _persist_aggregated_report(
     conn,
     job_id: int,
-    payload: Dict[str, Any],
-    campaign: Dict[str, Any],
-    rows_for_agg: List[Dict[str, Any]],
+    payload: dict[str, Any],
+    campaign: dict[str, Any],
+    rows_for_agg: list[dict[str, Any]],
     failed: int,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """partial 결과를 집계해 리포트 파일·job_results·jobs 완료 상태를 기록합니다."""
     mw = mv.DEFAULT_METRIC_WEIGHTS.copy()
     t0 = time.perf_counter()
@@ -342,7 +341,7 @@ def _persist_aggregated_report(
     return summary
 
 
-def reaggregate_completed_job(conn, job_id: int) -> Dict[str, Any]:
+def reaggregate_completed_job(conn, job_id: int) -> dict[str, Any]:
     """완료된 작업의 partial JSONL을 다시 읽어 리포트·요약을 재생성합니다(API 재집계용)."""
     job = db.fetch_job(conn, job_id)
     if job is None:
@@ -363,8 +362,8 @@ def reaggregate_completed_job(conn, job_id: int) -> Dict[str, Any]:
         paths_try.append(Path(str(rp)))
     paths_try.append(_partial_path(job_id))
 
-    rows_for_agg: List[Dict[str, Any]] = []
-    seen_partial_path: Optional[Path] = None
+    rows_for_agg: list[dict[str, Any]] = []
+    seen_partial_path: Path | None = None
     for p in paths_try:
         chunk = _rows_from_partial_file(p)
         if chunk:
@@ -430,7 +429,7 @@ def _maybe_finalize_job(conn, job_id: int) -> None:
     )
 
 
-def process_one_task(conn) -> Optional[int]:
+def process_one_task(conn) -> int | None:
     """pending job_task 1건 처리. 없으면 None."""
     task = db.claim_next_pending_task(conn)
     if task is None:

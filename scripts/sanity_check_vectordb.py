@@ -30,7 +30,6 @@ if str(ROOT_DIR) not in sys.path:
 
 from nemotron_ab.config import get_embed_model_name
 
-
 DEFAULT_QUERIES = [
     "20대 여성 직장인, 패션과 SNS 관심 많음",
     "50대 남성, 은퇴 준비와 재테크 관심",
@@ -155,7 +154,7 @@ def main() -> int:
             metas_q = res["metadatas"][0]
             docs_q = res["documents"][0]
             dists_q = res["distances"][0]
-            for i, (m, d, dist) in enumerate(zip(metas_q, docs_q, dists_q)):
+            for i, (m, d, dist) in enumerate(zip(metas_q, docs_q, dists_q, strict=False)):
                 print(
                     f"  {i+1}. dist={dist:.4f} age={m.get('age')} sex={m.get('sex')} "
                     f"occ={m.get('occupation')} {m.get('province')}/{m.get('district')}"

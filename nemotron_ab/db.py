@@ -2,19 +2,17 @@ import json
 import os
 import sqlite3
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Union
 
 from nemotron_ab.db_engine import (
-    DBConnection,
     ENV_DATABASE_URL,
+    DBConnection,
     is_sqlite,
     make_db_connection,
-    make_engine,
     make_sqlite_connection,
     resolve_database_url,
     sqlite_path_from_url,
 )
-
 
 # 호출부 타입 힌트 호환을 위해 별칭으로 노출. 실제로는 sqlite3.Connection 또는 DBConnection.
 ConnectionLike = Union[sqlite3.Connection, DBConnection]
@@ -28,7 +26,7 @@ def _fetch_inserted_id(cur: Any) -> int:
     - DBConnection._CursorView: wrapper 가 RETURNING 발견 시 이미 row 를
       소비하고 ``lastrowid`` 에 저장해 둠 — 그땐 lastrowid 폴백.
     """
-    new_id: Optional[int] = None
+    new_id: int | None = None
     try:
         row = cur.fetchone()
         if row is not None:
@@ -58,7 +56,7 @@ def default_sqlite_path() -> Path:
     return Path(raw) if raw else repo_root / "nemotron_ab" / "app.sqlite3"
 
 
-def get_conn(db_path: Optional[Union[Path, str]] = None) -> ConnectionLike:
+def get_conn(db_path: Path | str | None = None) -> ConnectionLike:
     """DB 커넥션을 반환한다.
 
     Phase 3.2 부터 PostgreSQL 도 지원한다 — DBConnection wrapper 가
@@ -196,7 +194,7 @@ def _migrate_add_token_columns(conn: ConnectionLike) -> None:
             conn.execute(f"ALTER TABLE job_tasks ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0")
 
 
-def enqueue_job(conn: ConnectionLike, title: str, payload: Dict[str, Any], *, status: str = "pending") -> int:
+def enqueue_job(conn: ConnectionLike, title: str, payload: dict[str, Any], *, status: str = "pending") -> int:
     cur = conn.execute(
         "INSERT INTO jobs(status, title, payload_json) VALUES(?, ?, ?) RETURNING id",
         (status, title, json.dumps(payload, ensure_ascii=False)),
@@ -206,7 +204,7 @@ def enqueue_job(conn: ConnectionLike, title: str, payload: Dict[str, Any], *, st
     return new_id
 
 
-def update_job_payload(conn: ConnectionLike, job_id: int, payload: Dict[str, Any]) -> None:
+def update_job_payload(conn: ConnectionLike, job_id: int, payload: dict[str, Any]) -> None:
     conn.execute(
         "UPDATE jobs SET payload_json=? WHERE id=?",
         (json.dumps(payload, ensure_ascii=False), job_id),
@@ -214,7 +212,7 @@ def update_job_payload(conn: ConnectionLike, job_id: int, payload: Dict[str, Any
     conn.commit()
 
 
-def fetch_jobs(conn: ConnectionLike, limit: int = 100) -> List[Any]:
+def fetch_jobs(conn: ConnectionLike, limit: int = 100) -> list[Any]:
     cur = conn.execute(
         "SELECT * FROM jobs ORDER BY id DESC LIMIT ?",
         (limit,),
@@ -225,13 +223,13 @@ def fetch_jobs(conn: ConnectionLike, limit: int = 100) -> List[Any]:
 def fetch_jobs_extended(
     conn: ConnectionLike,
     limit: int = 100,
-    status: Optional[str] = None,
-    q: Optional[str] = None,
+    status: str | None = None,
+    q: str | None = None,
     include_payload: bool = False,
-) -> List[Any]:
+) -> list[Any]:
     """작업 목록 + job_results.summary_json (있으면)."""
-    clauses: List[str] = []
-    params: List[Any] = []
+    clauses: list[str] = []
+    params: list[Any] = []
     if status:
         clauses.append("j.status = ?")
         params.append(status)
@@ -255,7 +253,7 @@ def fetch_jobs_extended(
     return cur.fetchall()
 
 
-def fetch_job_with_result(conn: ConnectionLike, job_id: int) -> Optional[Any]:
+def fetch_job_with_result(conn: ConnectionLike, job_id: int) -> Any | None:
     cur = conn.execute(
         """
         SELECT j.*, jr.summary_json AS summary_json,
@@ -270,9 +268,9 @@ def fetch_job_with_result(conn: ConnectionLike, job_id: int) -> Optional[Any]:
     return cur.fetchone()
 
 
-def queue_status_counts(conn: ConnectionLike) -> Dict[str, int]:
+def queue_status_counts(conn: ConnectionLike) -> dict[str, int]:
     cur = conn.execute("SELECT status, COUNT(*) AS c FROM jobs GROUP BY status")
-    out: Dict[str, int] = {}
+    out: dict[str, int] = {}
     for row in cur.fetchall():
         out[str(row["status"])] = int(row["c"])
     return out
@@ -289,7 +287,7 @@ def _begin_immediate(conn: ConnectionLike) -> None:
         conn.execute("BEGIN")
 
 
-def claim_next_pending_job(conn: ConnectionLike) -> Optional[Any]:
+def claim_next_pending_job(conn: ConnectionLike) -> Any | None:
     cur = conn.execute("SELECT * FROM jobs WHERE status='pending' ORDER BY id ASC LIMIT 1")
     row = cur.fetchone()
     if row is None:
@@ -314,7 +312,7 @@ def complete_job(
     job_id: int,
     report_json_path: str,
     partial_jsonl_path: str,
-    summary: Dict[str, Any],
+    summary: dict[str, Any],
 ) -> None:
     conn.execute(
         """
@@ -348,7 +346,7 @@ def fail_job(conn: ConnectionLike, job_id: int, error_message: str) -> None:
     conn.commit()
 
 
-def add_notification(conn: ConnectionLike, job_id: Optional[int], n_type: str, title: str, message: str) -> None:
+def add_notification(conn: ConnectionLike, job_id: int | None, n_type: str, title: str, message: str) -> None:
     conn.execute(
         "INSERT INTO notifications(job_id, type, title, message) VALUES(?, ?, ?, ?)",
         (job_id, n_type, title, message),
@@ -356,7 +354,7 @@ def add_notification(conn: ConnectionLike, job_id: Optional[int], n_type: str, t
     conn.commit()
 
 
-def fetch_notifications(conn: ConnectionLike, limit: int = 50) -> List[Any]:
+def fetch_notifications(conn: ConnectionLike, limit: int = 50) -> list[Any]:
     cur = conn.execute("SELECT * FROM notifications ORDER BY id DESC LIMIT ?", (limit,))
     return cur.fetchall()
 
@@ -371,12 +369,12 @@ def mark_notification_read(conn: ConnectionLike, notification_id: int) -> None:
     conn.commit()
 
 
-def fetch_job_result(conn: ConnectionLike, job_id: int) -> Optional[Any]:
+def fetch_job_result(conn: ConnectionLike, job_id: int) -> Any | None:
     cur = conn.execute("SELECT * FROM job_results WHERE job_id=?", (job_id,))
     return cur.fetchone()
 
 
-def fetch_job_basic(conn: ConnectionLike, job_id: int) -> Optional[Any]:
+def fetch_job_basic(conn: ConnectionLike, job_id: int) -> Any | None:
     """ID/제목/payload_json 만 가벼이 조회 (이미지 등 payload 필드 접근용)."""
     cur = conn.execute(
         "SELECT id, title, payload_json FROM jobs WHERE id=?",
@@ -385,7 +383,7 @@ def fetch_job_basic(conn: ConnectionLike, job_id: int) -> Optional[Any]:
     return cur.fetchone()
 
 
-def fetch_job(conn: ConnectionLike, job_id: int) -> Optional[Any]:
+def fetch_job(conn: ConnectionLike, job_id: int) -> Any | None:
     """단일 job 행 전체 조회. status/payload_json/started_at 등 모든 컬럼 포함."""
     cur = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,))
     return cur.fetchone()
@@ -424,7 +422,7 @@ def insert_job_task(
     conn: ConnectionLike,
     job_id: int,
     task_type: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
 ) -> int:
     cur = conn.execute(
         "INSERT INTO job_tasks(job_id, task_type, payload_json, status) VALUES(?, ?, ?, 'pending') RETURNING id",
@@ -435,7 +433,7 @@ def insert_job_task(
     return new_id
 
 
-def claim_next_pending_task(conn: ConnectionLike) -> Optional[Any]:
+def claim_next_pending_task(conn: ConnectionLike) -> Any | None:
     """LLM 세분화 큐: pending 태스크 1건을 running으로 선점."""
     _begin_immediate(conn)
     cur = conn.execute(
@@ -486,7 +484,7 @@ def complete_task(
     conn.commit()
 
 
-def job_token_totals(conn: ConnectionLike, job_id: int) -> Dict[str, int]:
+def job_token_totals(conn: ConnectionLike, job_id: int) -> dict[str, int]:
     """job 단위 토큰 사용량 합계.
 
     완료된 태스크뿐 아니라 모든 task 행을 합산해 부분 실행 비용도 반영합니다.
@@ -534,7 +532,7 @@ def reset_task_pending(conn: ConnectionLike, task_id: int) -> None:
     conn.commit()
 
 
-def count_job_tasks(conn: ConnectionLike, job_id: int, status: Optional[str] = None) -> int:
+def count_job_tasks(conn: ConnectionLike, job_id: int, status: str | None = None) -> int:
     if status:
         cur = conn.execute(
             "SELECT COUNT(*) AS c FROM job_tasks WHERE job_id=? AND status=?",
@@ -545,7 +543,7 @@ def count_job_tasks(conn: ConnectionLike, job_id: int, status: Optional[str] = N
     return int(cur.fetchone()["c"])
 
 
-def job_task_status_counts(conn: ConnectionLike, job_id: int) -> Dict[str, int]:
+def job_task_status_counts(conn: ConnectionLike, job_id: int) -> dict[str, int]:
     """job_id 기준 페르소나 LLM 태스크 상태별 건수(진행률·ETA용)."""
     cur = conn.execute(
         """
@@ -569,7 +567,7 @@ def job_has_tasks(conn: ConnectionLike, job_id: int) -> bool:
     return count_job_tasks(conn, job_id) > 0
 
 
-def claim_next_pending_job_legacy_only(conn: ConnectionLike) -> Optional[Any]:
+def claim_next_pending_job_legacy_only(conn: ConnectionLike) -> Any | None:
     """job_tasks가 없는 pending job만 (기존 서브프로세스 경로)."""
     cur = conn.execute(
         """

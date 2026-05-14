@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCE_JSONL = ROOT / "target_personas_20_59.jsonl"
@@ -25,7 +25,7 @@ def _normalize_sex(value: Any) -> str:
     return "기타"
 
 
-def _normalize_age(value: Any) -> Optional[int]:
+def _normalize_age(value: Any) -> int | None:
     try:
         age = int(value)
     except Exception:
@@ -35,8 +35,8 @@ def _normalize_age(value: Any) -> Optional[int]:
     return age
 
 
-def build_sex_age_cache(source_jsonl: Path = DEFAULT_SOURCE_JSONL) -> Dict[str, Any]:
-    counts: Dict[str, Dict[str, int]] = {"all": {}, "남자": {}, "여자": {}, "기타": {}}
+def build_sex_age_cache(source_jsonl: Path = DEFAULT_SOURCE_JSONL) -> dict[str, Any]:
+    counts: dict[str, dict[str, int]] = {"all": {}, "남자": {}, "여자": {}, "기타": {}}
     total = 0
     with source_jsonl.open("r", encoding="utf-8") as f:
         for line in f:
@@ -67,7 +67,7 @@ def build_sex_age_cache(source_jsonl: Path = DEFAULT_SOURCE_JSONL) -> Dict[str, 
     return payload
 
 
-def load_cache() -> Optional[Dict[str, Any]]:
+def load_cache() -> dict[str, Any] | None:
     if CACHE_PATH.exists():
         try:
             return json.loads(CACHE_PATH.read_text(encoding="utf-8"))
@@ -76,7 +76,7 @@ def load_cache() -> Optional[Dict[str, Any]]:
     return None
 
 
-def sum_count_from_cache(cache_payload: Dict[str, Any], sex: str, age_min: int, age_max: int) -> int:
+def sum_count_from_cache(cache_payload: dict[str, Any], sex: str, age_min: int, age_max: int) -> int:
     sex_key = str(sex or "all").strip()
     if sex_key not in ("all", "남자", "여자"):
         sex_key = "all"

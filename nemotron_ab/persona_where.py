@@ -1,7 +1,7 @@
 """페르소나 필터를 Chroma `$and` 조건 목록으로 변환합니다."""
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 _NEMOTRON_META_KEYS = (
     "marital_status",
@@ -52,7 +52,7 @@ def _normalize_district(province_norm: str, district_raw: str) -> str:
     return f"{province_norm}-{d}"
 
 
-def district_exact_token(persona_filter: Dict[str, Any]) -> str:
+def district_exact_token(persona_filter: dict[str, Any]) -> str:
     """district 완전일치 키를 돌려준다(입력이 이미 full token일 때만)."""
     district_raw = str(persona_filter.get("district", "") or "").strip()
     if not district_raw:
@@ -63,7 +63,7 @@ def district_exact_token(persona_filter: Dict[str, Any]) -> str:
     return ""
 
 
-def district_prefix_keyword(persona_filter: Dict[str, Any]) -> str:
+def district_prefix_keyword(persona_filter: dict[str, Any]) -> str:
     """district 부분일치 키를 만든다(예: '경기도' + '성남시' -> '경기-성남시')."""
     province = normalize_province(str(persona_filter.get("province", "") or ""))
     district_raw = str(persona_filter.get("district", "") or "").strip()
@@ -75,8 +75,8 @@ def district_prefix_keyword(persona_filter: Dict[str, Any]) -> str:
     return f"{province}-{district_raw}"
 
 
-def chroma_where_conditions(persona_filter: Dict[str, Any]) -> List[Dict[str, Any]]:
-    clauses: List[Dict[str, Any]] = [
+def chroma_where_conditions(persona_filter: dict[str, Any]) -> list[dict[str, Any]]:
+    clauses: list[dict[str, Any]] = [
         {"age": {"$gte": int(persona_filter["age_min"])}},
         {"age": {"$lte": int(persona_filter["age_max"])}},
     ]
@@ -97,5 +97,5 @@ def chroma_where_conditions(persona_filter: Dict[str, Any]) -> List[Dict[str, An
     return clauses
 
 
-def chroma_where_and(persona_filter: Dict[str, Any]) -> Dict[str, Any]:
+def chroma_where_and(persona_filter: dict[str, Any]) -> dict[str, Any]:
     return {"$and": chroma_where_conditions(persona_filter)}

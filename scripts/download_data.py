@@ -1,5 +1,6 @@
 from datasets import load_dataset
 
+
 def main():
     print("1. 데이터셋 다운로드 및 로드 중 (메모리 매핑 방식)...")
     # split="train"으로 지정하여 전체 데이터를 불러옵니다.

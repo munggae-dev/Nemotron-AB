@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -14,9 +14,9 @@ from nemotron_ab.persona_where import chroma_where_and, district_prefix_keyword
 
 
 def get_chroma_vectorstore(
-    db_path: Optional[Path] = None,
+    db_path: Path | None = None,
     collection_name: str = "marketing_personas",
-    model_name: Optional[str] = None,
+    model_name: str | None = None,
 ):
     """동일 임베딩으로 기존 Chroma 컬렉션을 LangChain VectorStore로 연다.
 
@@ -43,18 +43,18 @@ def similarity_search_with_age_filter(
     where: dict,
     k: int = 50,
     **kwargs: Any,
-) -> List[Any]:
+) -> list[Any]:
     """Chroma native `where`와 유사하게 메타 필터링된 검색 (LangChain 래퍼)."""
     vs = get_chroma_vectorstore(**kwargs)
     return vs.similarity_search(query, k=k, filter=where)
 
 
 def retrieve_personas_langchain(
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     max_personas: int,
     k: int,
     **vs_kwargs: Any,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """validator_runner와 동일한 쿼리·필터로 LangChain Chroma 검색 후 행 dict 목록."""
     query_text = " ".join(
         [
@@ -74,7 +74,7 @@ def retrieve_personas_langchain(
     n_fetch = min(2000, max(base_n * mult, base_n))
     vs = get_chroma_vectorstore(**vs_kwargs)
     docs = vs.similarity_search(query_text, k=n_fetch, filter=where)
-    rows: List[Dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
     for idx, doc in enumerate(docs):
         if len(rows) >= max_personas:
             break

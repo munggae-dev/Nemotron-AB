@@ -21,9 +21,9 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Dict, List, Mapping, Optional, Sequence
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # 상수 / 기본값
@@ -71,13 +71,13 @@ class ResolvedPromptProfile:
     """
 
     profile: str
-    persona_fields: Optional[List[str]]
-    persona_drop_fields: Optional[List[str]]
+    persona_fields: list[str] | None
+    persona_drop_fields: list[str] | None
     max_reason_chars: int
     response_format_json: bool
 
 
-def normalize_profile(value: Optional[str]) -> str:
+def normalize_profile(value: str | None) -> str:
     name = str(value or "").strip().lower()
     if name in VALID_PROFILES:
         return name
@@ -106,12 +106,12 @@ def default_max_context_chars() -> int:
 
 
 def resolve_prompt_profile(
-    profile: Optional[str],
+    profile: str | None,
     *,
     user_max_reason_chars: int = 80,
     user_response_format_json: bool = False,
-    user_persona_fields: Optional[Sequence[str]] = None,
-    user_persona_drop_fields: Optional[Sequence[str]] = None,
+    user_persona_fields: Sequence[str] | None = None,
+    user_persona_drop_fields: Sequence[str] | None = None,
 ) -> ResolvedPromptProfile:
     """프로파일을 적용해 최종 평가 파라미터를 결정한다.
 
@@ -157,7 +157,7 @@ def truncate_persona_view(
     max_chars: int,
     *,
     suffix: str = "…",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """페르소나 뷰의 JSON 직렬화 길이를 `max_chars` 이하로 줄인다.
 
     전략 (필드를 통째로 버리지 않고 *내용*만 자른다):
@@ -172,7 +172,7 @@ def truncate_persona_view(
     if not isinstance(view, dict) or max_chars <= 0:
         return dict(view) if isinstance(view, dict) else {}
 
-    out: Dict[str, Any] = dict(view)
+    out: dict[str, Any] = dict(view)
     if _json_len(out) <= max_chars:
         return out
 

@@ -168,7 +168,7 @@ def main():
     # 전체 입력 라인 수(진행률 표시용). 빠르게 한 번만 카운트.
     total_lines = 0
     try:
-        with open(args.input_file, "r", encoding="utf-8") as _cf:
+        with open(args.input_file, encoding="utf-8") as _cf:
             for _ in _cf:
                 total_lines += 1
     except OSError:
@@ -177,7 +177,7 @@ def main():
     print(f"데이터 임베딩 및 DB 저장 시작... (입력 라인 {total_lines:,}건)")
     last_log_processed = 0
     loop_t0 = time.perf_counter()
-    with open(args.input_file, "r", encoding="utf-8") as f:
+    with open(args.input_file, encoding="utf-8") as f:
         for i, line in enumerate(f):
             data = json.loads(line)
 

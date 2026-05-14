@@ -2,7 +2,7 @@ import json
 import os
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 
@@ -22,7 +22,7 @@ def _truncate_for_error(text: str, limit: int = _MAX_ERR_CHARS) -> str:
     return text[:limit] + "\n... [출력 잘림] ..."
 
 
-def _subprocess_timeout_sec() -> Optional[float]:
+def _subprocess_timeout_sec() -> float | None:
     raw = os.environ.get(_ENV_SUBPROCESS_TIMEOUT, "").strip()
     if not raw:
         return None
@@ -42,7 +42,7 @@ def _subprocess_stream_output() -> bool:
     )
 
 
-def _cmd_summary(cmd: List[str]) -> str:
+def _cmd_summary(cmd: list[str]) -> str:
     if not cmd:
         return "(빈 명령)"
     if len(cmd) <= 2:
@@ -50,7 +50,7 @@ def _cmd_summary(cmd: List[str]) -> str:
     return f"{cmd[0]} {cmd[1]} ... ({len(cmd)} 인자)"
 
 
-def _format_subprocess_failure(completed: subprocess.CompletedProcess, cmd: List[str]) -> str:
+def _format_subprocess_failure(completed: subprocess.CompletedProcess, cmd: list[str]) -> str:
     parts = [
         f"validator 종료 코드 {completed.returncode}",
         f"명령: {_cmd_summary(cmd)}",
@@ -66,7 +66,7 @@ def _format_subprocess_failure(completed: subprocess.CompletedProcess, cmd: List
     return "\n\n".join(parts)
 
 
-def _format_timeout_error(cmd: List[str], timeout_sec: Optional[float], exc: subprocess.TimeoutExpired) -> str:
+def _format_timeout_error(cmd: list[str], timeout_sec: float | None, exc: subprocess.TimeoutExpired) -> str:
     ts_display = str(timeout_sec) if timeout_sec is not None else "?"
     parts = [
         f"validator 서브프로세스 타임아웃 ({ts_display}초, {_ENV_SUBPROCESS_TIMEOUT})",
@@ -89,10 +89,10 @@ def _format_timeout_error(cmd: List[str], timeout_sec: Optional[float], exc: sub
     return "\n\n".join(parts)
 
 
-def _run_ab_validator_subprocess(cmd: List[str]) -> subprocess.CompletedProcess:
+def _run_ab_validator_subprocess(cmd: list[str]) -> subprocess.CompletedProcess:
     timeout = _subprocess_timeout_sec()
     stream = _subprocess_stream_output()
-    base_kw: Dict[str, Any] = {
+    base_kw: dict[str, Any] = {
         "check": False,
         "cwd": str(ROOT_DIR),
     }
@@ -121,7 +121,6 @@ from nemotron_ab.config import get_embed_model_name
 from nemotron_ab.persona_filter_schema import retrieval_fanout_multiplier
 from nemotron_ab.persona_where import chroma_where_and, district_prefix_keyword
 
-
 SCRIPT_PATH = ROOT_DIR / "scripts" / "ab_validator.py"
 OUTPUT_BASE = ROOT_DIR / "outputs" / "jobs"
 _RETRIEVAL_MODEL = None
@@ -144,7 +143,7 @@ def _resolve_python_executable() -> str:
     return _sys.executable
 
 
-def _make_campaign_payload(job_id: int, payload: Dict) -> List[Dict]:
+def _make_campaign_payload(job_id: int, payload: dict) -> list[dict]:
     camp = {
         "id": f"job_{job_id}",
         "context": str(payload.get("context", "") or ""),
@@ -158,7 +157,7 @@ def _make_campaign_payload(job_id: int, payload: Dict) -> List[Dict]:
     return [camp]
 
 
-def _retrieve_filtered_personas(payload: Dict, max_personas: int) -> List[Dict]:
+def _retrieve_filtered_personas(payload: dict, max_personas: int) -> list[dict]:
     import os
 
     if os.environ.get("PERSONA_RETRIEVE_BACKEND", "").strip().lower() == "langchain_chroma":
@@ -212,7 +211,7 @@ def _retrieve_filtered_personas(payload: Dict, max_personas: int) -> List[Dict]:
     docs = result.get("documents", [[]])[0]
     metas = result.get("metadatas", [[]])[0]
 
-    rows: List[Dict] = []
+    rows: list[dict] = []
     for idx, meta in enumerate(metas):
         if len(rows) >= max_personas:
             break
@@ -264,7 +263,7 @@ def _retrieve_filtered_personas(payload: Dict, max_personas: int) -> List[Dict]:
     return rows
 
 
-def run_validator(job_id: int, payload: Dict) -> Tuple[Path, Path, Dict]:
+def run_validator(job_id: int, payload: dict) -> tuple[Path, Path, dict]:
     job_dir = OUTPUT_BASE / f"job_{job_id}"
     job_dir.mkdir(parents=True, exist_ok=True)
 

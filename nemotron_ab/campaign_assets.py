@@ -8,7 +8,7 @@ import shutil
 import uuid
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict, Literal, Optional, Tuple
+from typing import Any, Literal
 from urllib.request import Request, urlopen
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -22,7 +22,7 @@ _URL_FETCH_TIMEOUT_SEC = 30
 _DEFAULT_LLM_IMAGE_MAX_DIM = 512
 
 
-def _resolve_image_max_dim(explicit: Optional[int]) -> int:
+def _resolve_image_max_dim(explicit: int | None) -> int:
     """LLM 입력 이미지 최대 변(픽셀) 결정. 0 이하이면 다운스케일 비활성화."""
     if explicit is not None:
         try:
@@ -38,7 +38,7 @@ def _resolve_image_max_dim(explicit: Optional[int]) -> int:
     return _DEFAULT_LLM_IMAGE_MAX_DIM
 
 
-def _downscale_image_bytes(data: bytes, max_dim: int, mime_hint: str) -> Tuple[bytes, str]:
+def _downscale_image_bytes(data: bytes, max_dim: int, mime_hint: str) -> tuple[bytes, str]:
     """비율 유지 다운스케일. 변환 불필요(작은 이미지)이면 원본 그대로 반환.
 
     Pillow 미설치/디코딩 실패 등 어떤 이유로든 실패하면 원본을 그대로 반환해
@@ -58,7 +58,7 @@ def _downscale_image_bytes(data: bytes, max_dim: int, mime_hint: str) -> Tuple[b
                 return data, mime_hint
             im.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
             fmt = (im.format or "JPEG").upper()
-            save_kwargs: Dict[str, Any] = {}
+            save_kwargs: dict[str, Any] = {}
             if fmt == "PNG":
                 save_kwargs["optimize"] = True
                 out_mime = "image/png"
@@ -113,7 +113,7 @@ def _job_assets_dir(job_id: int) -> Path:
     return OUTPUT_JOBS / f"job_{job_id}" / "assets"
 
 
-def promote_asset_to_job(job_id: int, variant: Literal["a", "b"], ref: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+def promote_asset_to_job(job_id: int, variant: Literal["a", "b"], ref: dict[str, Any] | None) -> dict[str, Any] | None:
     """staging/asset_ref → outputs/jobs/job_{id}/assets/{a|b}.{ext}. URL·path는 그대로 반환."""
     if ref is None:
         return None
@@ -149,7 +149,7 @@ def promote_asset_to_job(job_id: int, variant: Literal["a", "b"], ref: Optional[
     raise ValueError(f"알 수 없는 image ref type: {t}")
 
 
-def normalize_job_payload_images(job_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
+def normalize_job_payload_images(job_id: int, payload: dict[str, Any]) -> dict[str, Any]:
     out = dict(payload)
     out["image_a"] = promote_asset_to_job(job_id, "a", out.get("image_a"))
     out["image_b"] = promote_asset_to_job(job_id, "b", out.get("image_b"))
@@ -161,7 +161,7 @@ def _guess_mime_suffix(suffix: str) -> str:
     return mime or "application/octet-stream"
 
 
-def image_ref_to_data_url(ref: Dict[str, Any], max_dim: Optional[int] = None) -> str:
+def image_ref_to_data_url(ref: dict[str, Any], max_dim: int | None = None) -> str:
     """LangChain/Ollama 멀티모달용 data:image/...;base64,...
 
     max_dim이 양수면 비율 유지 다운스케일을 적용해 시각 토큰 수를 줄인다.
@@ -198,7 +198,7 @@ def image_ref_to_data_url(ref: Dict[str, Any], max_dim: Optional[int] = None) ->
     raise ValueError(f"data URL 변환 불가 type={t}")
 
 
-def resolve_image_file_path(ref: Dict[str, Any]) -> Optional[Path]:
+def resolve_image_file_path(ref: dict[str, Any]) -> Path | None:
     """GET /jobs/.../images 서빙용 로컬 파일 경로."""
     if str(ref.get("type", "")) != "path":
         return None
@@ -210,7 +210,7 @@ def resolve_image_file_path(ref: Dict[str, Any]) -> Optional[Path]:
     return path
 
 
-def payload_has_any_image(payload: Dict[str, Any]) -> bool:
+def payload_has_any_image(payload: dict[str, Any]) -> bool:
     for key in ("image_a", "image_b"):
         ref = payload.get(key)
         if isinstance(ref, dict) and str(ref.get("value", "")).strip():
@@ -218,7 +218,7 @@ def payload_has_any_image(payload: Dict[str, Any]) -> bool:
     return False
 
 
-def campaign_has_any_image(campaign: Dict[str, Any]) -> bool:
+def campaign_has_any_image(campaign: dict[str, Any]) -> bool:
     for key in ("image_a", "image_b"):
         ref = campaign.get(key)
         if isinstance(ref, dict) and str(ref.get("value", "")).strip():
@@ -226,7 +226,7 @@ def campaign_has_any_image(campaign: Dict[str, Any]) -> bool:
     return False
 
 
-def mock_image_seed_fragment(campaign: Dict[str, Any]) -> str:
+def mock_image_seed_fragment(campaign: dict[str, Any]) -> str:
     parts = []
     for key in ("image_a", "image_b"):
         ref = campaign.get(key)

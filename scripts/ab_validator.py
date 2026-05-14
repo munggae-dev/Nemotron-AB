@@ -9,9 +9,9 @@ import time
 import tracemalloc
 import urllib.error
 import urllib.request
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
 
 import chromadb
 from sentence_transformers import SentenceTransformer
@@ -42,10 +42,10 @@ class Persona:
     persona_id: str
     age: int
     bucket: str
-    raw: Dict
+    raw: dict
 
 
-def age_to_bucket(age: int) -> Optional[str]:
+def age_to_bucket(age: int) -> str | None:
     # 만 19세는 데이터·분석 모두 20대(20s) 버킷에 포함
     if 19 <= age <= 29:
         return "20s"
@@ -58,7 +58,7 @@ def age_to_bucket(age: int) -> Optional[str]:
     return None
 
 
-def bucket_age_bounds(bucket: str) -> Tuple[int, int]:
+def bucket_age_bounds(bucket: str) -> tuple[int, int]:
     """Chroma age 필터와 age_to_bucket 규칙을 맞춘다(20s = 19~29)."""
     if bucket == "20s":
         return 19, 29
@@ -71,7 +71,7 @@ def bucket_age_bounds(bucket: str) -> Tuple[int, int]:
     raise ValueError(f"unknown bucket: {bucket}")
 
 
-def load_personas(persona_file: Path) -> Iterable[Dict]:
+def load_personas(persona_file: Path) -> Iterable[dict]:
     with persona_file.open("r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
@@ -83,8 +83,8 @@ def load_personas(persona_file: Path) -> Iterable[Dict]:
                 continue
 
 
-def normalize_personas(persona_rows: Iterable[Dict]) -> List[Persona]:
-    personas: List[Persona] = []
+def normalize_personas(persona_rows: Iterable[dict]) -> list[Persona]:
+    personas: list[Persona] = []
     for idx, row in enumerate(persona_rows):
         try:
             age = int(str(row.get("age", "")).strip())
@@ -98,7 +98,7 @@ def normalize_personas(persona_rows: Iterable[Dict]) -> List[Persona]:
     return personas
 
 
-def normalize_persona_row(row: Dict, fallback_id: str) -> Optional[Persona]:
+def normalize_persona_row(row: dict, fallback_id: str) -> Persona | None:
     try:
         age = int(str(row.get("age", "")).strip())
     except ValueError:
@@ -111,20 +111,20 @@ def normalize_persona_row(row: Dict, fallback_id: str) -> Optional[Persona]:
 
 
 def sample_personas_by_bucket(
-    personas: List[Persona],
+    personas: list[Persona],
     min_per_bucket: int,
     max_personas: int,
     seed: int,
-) -> Tuple[List[Persona], List[str]]:
+) -> tuple[list[Persona], list[str]]:
     rng = random.Random(seed)
-    grouped: Dict[str, List[Persona]] = {k: [] for k in AGE_BUCKETS}
+    grouped: dict[str, list[Persona]] = {k: [] for k in AGE_BUCKETS}
     for p in personas:
         grouped[p.bucket].append(p)
     for b in AGE_BUCKETS:
         rng.shuffle(grouped[b])
 
-    sampled: List[Persona] = []
-    warnings: List[str] = []
+    sampled: list[Persona] = []
+    warnings: list[str] = []
 
     for bucket in AGE_BUCKETS:
         bucket_samples = grouped[bucket][:min_per_bucket]
@@ -149,7 +149,7 @@ def sample_personas_by_bucket(
     return sampled[:max_personas], warnings
 
 
-def campaign_has_images(campaign: Dict) -> bool:
+def campaign_has_images(campaign: dict) -> bool:
     for key in ("image_a", "image_b"):
         ref = campaign.get(key)
         if isinstance(ref, dict) and str(ref.get("value", "")).strip():
@@ -157,7 +157,7 @@ def campaign_has_images(campaign: Dict) -> bool:
     return False
 
 
-def _campaign_image_seed_fragment(campaign: Dict) -> str:
+def _campaign_image_seed_fragment(campaign: dict) -> str:
     parts = []
     for key in ("image_a", "image_b"):
         ref = campaign.get(key)
@@ -166,7 +166,7 @@ def _campaign_image_seed_fragment(campaign: Dict) -> str:
     return "|".join(parts)
 
 
-def build_eval_json_schema(metrics: Dict[str, float], max_reason_chars: int) -> Dict:
+def build_eval_json_schema(metrics: dict[str, float], max_reason_chars: int) -> dict:
     return {
         "winner": "A 또는 B",
         "scores": {
@@ -186,9 +186,9 @@ DEFAULT_PERSONA_DROP_KEYS: tuple = (
 
 def persona_view_for_prompt(
     persona: "Persona",
-    fields: Optional[List[str]] = None,
-    drop_keys: Optional[List[str]] = None,
-) -> Dict:
+    fields: list[str] | None = None,
+    drop_keys: list[str] | None = None,
+) -> dict:
     """LLM 프롬프트에 넣을 페르소나 뷰를 만든다.
 
     - fields가 주어지면 화이트리스트 모드 (해당 키만 포함, 존재하는 것만)
@@ -208,10 +208,10 @@ def persona_view_for_prompt(
 
 def build_prompt(
     persona: Persona,
-    campaign: Dict,
-    metrics: Dict[str, float],
+    campaign: dict,
+    metrics: dict[str, float],
     max_reason_chars: int,
-    persona_view: Optional[Dict] = None,
+    persona_view: dict | None = None,
 ) -> str:
     json_schema = build_eval_json_schema(metrics, max_reason_chars)
     metric_keys = ", ".join(metrics.keys())
@@ -247,7 +247,7 @@ def _hash_to_score(seed_text: str) -> int:
     return 30 + (int(digest[:8], 16) % 71)
 
 
-def evaluate_with_mock(persona: Persona, campaign: Dict, metrics: Dict[str, float], seed: int) -> Dict:
+def evaluate_with_mock(persona: Persona, campaign: dict, metrics: dict[str, float], seed: int) -> dict:
     img_seed = _campaign_image_seed_fragment(campaign)
     base_key = f"{seed}|{persona.persona_id}|{campaign['id']}|{img_seed}"
     scores = {"A": {}, "B": {}}
@@ -264,7 +264,7 @@ def evaluate_with_mock(persona: Persona, campaign: Dict, metrics: Dict[str, floa
     return {"winner": winner, "scores": scores, "reason": reason}
 
 
-def _extract_json_object(text: str) -> Dict:
+def _extract_json_object(text: str) -> dict:
     text = text.strip()
     # 모델이 코드펜스/설명을 붙이는 경우를 대비해 첫 JSON 객체를 추출
     start = text.find("{")
@@ -276,13 +276,13 @@ def _extract_json_object(text: str) -> Dict:
 
 def evaluate_with_ollama(
     persona: Persona,
-    campaign: Dict,
-    metrics: Dict[str, float],
+    campaign: dict,
+    metrics: dict[str, float],
     max_reason_chars: int,
     ollama_url: str,
     ollama_model: str,
     ollama_timeout_sec: int,
-) -> Dict:
+) -> dict:
     if campaign_has_images(campaign):
         raise ValueError(
             "이미지가 포함된 A/B 안은 단일 텍스트 프롬프트 Ollama API로 평가할 수 없습니다. "
@@ -336,7 +336,7 @@ def evaluate_with_ollama(
     return {"winner": winner, "scores": scores, "reason": reason}
 
 
-def weighted_sum(score_map: Dict[str, int], metric_weights: Dict[str, float]) -> float:
+def weighted_sum(score_map: dict[str, int], metric_weights: dict[str, float]) -> float:
     return sum(score_map[k] * metric_weights[k] for k in metric_weights.keys())
 
 
@@ -346,7 +346,7 @@ def confidence_from_margin(score_a: float, score_b: float) -> float:
     return min(1.0, margin / 100.0)
 
 
-def _quote_strength(row: Dict) -> Tuple[float, float]:
+def _quote_strength(row: dict) -> tuple[float, float]:
     conf = float(row.get("confidence") or 0.0)
     ws = row.get("weighted_score") or {}
     try:
@@ -358,11 +358,11 @@ def _quote_strength(row: Dict) -> Tuple[float, float]:
     return (conf, margin)
 
 
-def _winner_aligned_quotes(all_rows: List[Dict], final_winner: str, *, max_quotes: int) -> List[str]:
+def _winner_aligned_quotes(all_rows: list[dict], final_winner: str, *, max_quotes: int) -> list[str]:
     arm = str(final_winner)
     cand = [r for r in all_rows if str(r.get("winner")) == arm]
     cand.sort(key=_quote_strength, reverse=True)
-    out: List[str] = []
+    out: list[str] = []
     seen = set()
     for r in cand:
         reason = str(r.get("reason", "")).strip()
@@ -375,7 +375,7 @@ def _winner_aligned_quotes(all_rows: List[Dict], final_winner: str, *, max_quote
     return out
 
 
-def _minority_counterpoint_line(all_rows: List[Dict], loser: str, loser_share: float) -> Optional[str]:
+def _minority_counterpoint_line(all_rows: list[dict], loser: str, loser_share: float) -> str | None:
     if loser_share < 0.05 or loser_share > 0.40:
         return None
     cand = [r for r in all_rows if str(r.get("winner")) == str(loser)]
@@ -394,12 +394,12 @@ def _minority_counterpoint_line(all_rows: List[Dict], loser: str, loser_share: f
 
 def build_key_reasons(
     *,
-    all_rows: List[Dict],
-    overall: Dict,
-    summary_by_bucket: Dict[str, Dict],
+    all_rows: list[dict],
+    overall: dict,
+    summary_by_bucket: dict[str, dict],
     final_winner: str,
     max_items: int = 10,
-) -> List[str]:
+) -> list[str]:
     """집계 수치를 먼저 밝히고, 최종 추천 Variant와 winner가 일치하는 표본의 근거만 인용한다."""
     n = int(overall.get("count") or 0)
     if n <= 0:
@@ -411,7 +411,7 @@ def build_key_reasons(
     sb = float(overall["avg_score"]["B"])
     avg_conf = float(overall.get("avg_confidence") or 0.0)
 
-    lines: List[str] = [
+    lines: list[str] = [
         (
             f"전체 표본 {n}건 기준 우세 비율 A {wr_a:.1%} / B {wr_b:.1%}, "
             f"평균 가중 점수 A {sa:.2f} · B {sb:.2f}, "
@@ -420,7 +420,7 @@ def build_key_reasons(
         )
     ]
 
-    bucket_bits: List[str] = []
+    bucket_bits: list[str] = []
     for b in AGE_BUCKETS:
         s = summary_by_bucket.get(b) or {}
         cnt = int(s.get("count") or 0)
@@ -454,8 +454,8 @@ def build_key_reasons(
 
 def evaluate_one(
     persona: Persona,
-    campaign: Dict,
-    metric_weights: Dict[str, float],
+    campaign: dict,
+    metric_weights: dict[str, float],
     retries: int,
     seed: int,
     evaluator: str,
@@ -463,7 +463,7 @@ def evaluate_one(
     ollama_url: str,
     ollama_model: str,
     ollama_timeout_sec: int,
-) -> Dict:
+) -> dict:
     last_error = None
     for _ in range(retries + 1):
         try:
@@ -490,12 +490,12 @@ def evaluate_one(
     return {"error": last_error or "unknown_error"}
 
 
-def aggregate_results(results: List[Dict], metric_weights: Dict[str, float]) -> Dict:
+def aggregate_results(results: list[dict], metric_weights: dict[str, float]) -> dict:
     by_bucket = {b: [] for b in AGE_BUCKETS}
     for row in results:
         by_bucket[row["bucket"]].append(row)
 
-    def summarize_rows(rows: List[Dict]) -> Dict:
+    def summarize_rows(rows: list[dict]) -> dict:
         if not rows:
             return {"count": 0, "win_rate": {"A": 0.0, "B": 0.0}, "avg_score": {"A": 0.0, "B": 0.0}, "avg_confidence": 0.0}
         wins_a = sum(1 for r in rows if r["winner"] == "A")
@@ -547,13 +547,13 @@ def aggregate_results(results: List[Dict], metric_weights: Dict[str, float]) -> 
     }
 
 
-def write_json(path: Path, obj: Dict) -> None:
+def write_json(path: Path, obj: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
         json.dump(obj, f, ensure_ascii=False, indent=2)
 
 
-def write_text_report(path: Path, campaign: Dict, report: Dict, warnings: List[str], runtime: Dict) -> None:
+def write_text_report(path: Path, campaign: dict, report: dict, warnings: list[str], runtime: dict) -> None:
     lines = []
     lines.append("# Nemotron Persona Marketing Validation Report")
     lines.append("")
@@ -589,9 +589,9 @@ def write_text_report(path: Path, campaign: Dict, report: Dict, warnings: List[s
 
 
 def run_campaign(
-    personas: List[Persona],
-    campaign: Dict,
-    metric_weights: Dict[str, float],
+    personas: list[Persona],
+    campaign: dict,
+    metric_weights: dict[str, float],
     batch_size: int,
     retries: int,
     seed: int,
@@ -602,13 +602,13 @@ def run_campaign(
     ollama_model: str,
     ollama_timeout_sec: int,
     eval_concurrency: int,
-) -> List[Dict]:
-    rows: List[Dict] = []
+) -> list[dict]:
+    rows: list[dict] = []
     partial_file.parent.mkdir(parents=True, exist_ok=True)
     with partial_file.open("w", encoding="utf-8") as partial:
         for i in range(0, len(personas), batch_size):
             batch = personas[i:i + batch_size]
-            batch_results: Dict[str, Dict] = {}
+            batch_results: dict[str, dict] = {}
             if evaluator == "ollama" and eval_concurrency > 1:
                 with concurrent.futures.ThreadPoolExecutor(max_workers=eval_concurrency) as executor:
                     future_map = {
@@ -714,7 +714,7 @@ def resolve_device(device_arg: str) -> str:
     return device_arg
 
 
-def build_retrieval_query(campaign: Dict) -> str:
+def build_retrieval_query(campaign: dict) -> str:
     context = str(campaign.get("context", "") or "").strip()
     fields = [
         context,
@@ -732,11 +732,11 @@ def retrieve_personas_from_vectordb(
     db_path: Path,
     collection_name: str,
     retrieval_model: SentenceTransformer,
-    campaign: Dict,
+    campaign: dict,
     max_personas: int,
     per_bucket_target: int,
     seed: int,
-) -> Tuple[List[Persona], List[str]]:
+) -> tuple[list[Persona], list[str]]:
     client = chromadb.PersistentClient(path=str(db_path))
     collection = client.get_collection(name=collection_name)
     query_text = build_retrieval_query(campaign)
@@ -747,9 +747,9 @@ def retrieve_personas_from_vectordb(
         show_progress_bar=False,
     )[0].tolist()
     rng = random.Random(seed)
-    warnings: List[str] = []
+    warnings: list[str] = []
 
-    selected: Dict[str, List[Persona]] = {b: [] for b in AGE_BUCKETS}
+    selected: dict[str, list[Persona]] = {b: [] for b in AGE_BUCKETS}
     for bucket in AGE_BUCKETS:
         lo, hi = bucket_age_bounds(bucket)
         result = collection.query(
@@ -779,7 +779,7 @@ def retrieve_personas_from_vectordb(
                 f"[WARN] VectorDB {bucket} 검색 결과가 목표({per_bucket_target})보다 적음: {len(selected[bucket])}"
             )
 
-    merged: List[Persona] = []
+    merged: list[Persona] = []
     # 연령대 균등 우선 추출
     round_idx = 0
     while len(merged) < max_personas:
@@ -806,7 +806,7 @@ def main() -> None:
     profile = PROFILE_PRESETS[args.profile]
     max_personas = args.max_personas if args.max_personas > 0 else profile["max_personas"]
     metric_weights = DEFAULT_METRIC_WEIGHTS.copy()
-    warnings: List[str] = []
+    warnings: list[str] = []
 
     if not args.campaign_file.exists():
         raise FileNotFoundError(f"campaign file not found: {args.campaign_file}")
@@ -815,8 +815,8 @@ def main() -> None:
     if not isinstance(campaigns, list) or not campaigns:
         raise ValueError("campaign-file must contain a non-empty JSON array")
 
-    sampled: List[Persona] = []
-    retrieval_model: Optional[SentenceTransformer] = None
+    sampled: list[Persona] = []
+    retrieval_model: SentenceTransformer | None = None
     if args.persona_source == "file":
         if not args.persona_file.exists():
             raise FileNotFoundError(f"persona file not found: {args.persona_file}")

@@ -16,8 +16,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
-
+from typing import Any
 
 DEFAULT_BASE_URL = "http://localhost:11434/v1"
 DEFAULT_MODEL = "gemma3:4b-it-qat"
@@ -40,7 +39,7 @@ class LLMConfig:
     model: str
     api_key: str
     temperature: float = 0.1
-    request_timeout_sec: Optional[float] = None
+    request_timeout_sec: float | None = None
 
     def __repr__(self) -> str:
         masked = "***" if self.api_key else "(empty)"
@@ -49,7 +48,7 @@ class LLMConfig:
             f"api_key={masked}, temperature={self.temperature})"
         )
 
-    def to_safe_dict(self) -> Dict[str, Any]:
+    def to_safe_dict(self) -> dict[str, Any]:
         """로그/응답용 안전 직렬화 (api_key 제외)."""
         return {
             "base_url": self.base_url,
@@ -60,11 +59,11 @@ class LLMConfig:
 
 
 def resolve_llm_config(
-    base_url: Optional[str] = None,
-    model: Optional[str] = None,
-    api_key: Optional[str] = None,
+    base_url: str | None = None,
+    model: str | None = None,
+    api_key: str | None = None,
     temperature: float = 0.1,
-    request_timeout_sec: Optional[float] = None,
+    request_timeout_sec: float | None = None,
 ) -> LLMConfig:
     """인자 > 환경변수 > 기본값 순으로 설정을 결정합니다."""
     resolved_base = (base_url or os.environ.get(ENV_BASE_URL, "") or DEFAULT_BASE_URL).rstrip("/")
@@ -87,10 +86,10 @@ def make_chat_llm(config: LLMConfig, *, response_format_json: bool = False) -> A
     """
     from langchain_openai import ChatOpenAI
 
-    extra: Dict[str, Any] = {}
+    extra: dict[str, Any] = {}
     if response_format_json:
         extra["model_kwargs"] = {"response_format": {"type": "json_object"}}
-    kwargs: Dict[str, Any] = {
+    kwargs: dict[str, Any] = {
         "model": config.model,
         "temperature": config.temperature,
         "base_url": config.base_url,
@@ -102,7 +101,7 @@ def make_chat_llm(config: LLMConfig, *, response_format_json: bool = False) -> A
     return ChatOpenAI(**kwargs)
 
 
-def extract_usage(response: Any) -> Dict[str, int]:
+def extract_usage(response: Any) -> dict[str, int]:
     """LangChain AIMessage 응답에서 토큰 사용량을 추출합니다.
 
     표준 필드 `usage_metadata` (input_tokens/output_tokens/total_tokens)를

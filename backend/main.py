@@ -5,10 +5,11 @@ import asyncio
 import json
 import os
 import sys
+from collections.abc import Generator, Mapping
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Mapping, Optional, Union
+from typing import Any
 
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,13 +29,14 @@ from nemotron_ab.campaign_assets import (
 )
 from nemotron_ab.job_tasks_worker import finalize_llm_enqueue_sync, reaggregate_completed_job
 from nemotron_ab.persona_filter_schema import (
+    FIELD_LABEL_KO,
     FILTER_ENUM_LOOKUP,
     FILTER_ENUMS_FOR_META,
-    FIELD_LABEL_KO,
 )
 from nemotron_ab.persona_population_cache import load_cache, sum_count_from_cache
 from nemotron_ab.persona_where import chroma_where_and, district_prefix_keyword
 from nemotron_ab.regions import KOREA_REGIONS
+
 
 def _db_path() -> Path:
     return db.default_sqlite_path()
@@ -79,8 +81,8 @@ class JobCreate(BaseModel):
     title: str = "신규 A/B 평가"
     text_a: str = Field("", max_length=2000)
     text_b: str = Field("", max_length=2000)
-    image_a: Optional[ImageRefIn] = None
-    image_b: Optional[ImageRefIn] = None
+    image_a: ImageRefIn | None = None
+    image_b: ImageRefIn | None = None
     context: str = Field("", max_length=4000)
     profile: str = "small"
     evaluator: str = "mock"
@@ -102,7 +104,7 @@ class JobCreate(BaseModel):
     persona_filter: PersonaFilterIn
 
 
-def _optional_image_payload(ref: Optional[ImageRefIn]) -> Optional[Dict[str, str]]:
+def _optional_image_payload(ref: ImageRefIn | None) -> dict[str, str] | None:
     if ref is None:
         return None
     t = ref.type.strip()
@@ -114,14 +116,14 @@ def _optional_image_payload(ref: Optional[ImageRefIn]) -> Optional[Dict[str, str
     return {"type": t, "value": v}
 
 
-def _validate_variant_inputs(text_s: str, img: Optional[ImageRefIn], label: str) -> None:
+def _validate_variant_inputs(text_s: str, img: ImageRefIn | None, label: str) -> None:
     has_text = bool(text_s.strip())
     has_img = img is not None and bool(img.value.strip())
     if not has_text and not has_img:
         raise HTTPException(400, f"{label}에는 텍스트 또는 이미지 중 하나 이상 필요합니다")
 
 
-def _validate_image_in(ref: Optional[ImageRefIn]) -> None:
+def _validate_image_in(ref: ImageRefIn | None) -> None:
     if ref is None or not ref.value.strip():
         return
     if ref.type.strip() == "url":
@@ -151,7 +153,7 @@ def _validate_nemotron_persona_filter_enums(pf: Mapping[str, Any]) -> None:
             )
 
 
-def _payload_from_create(body: JobCreate) -> Dict[str, Any]:
+def _payload_from_create(body: JobCreate) -> dict[str, Any]:
     img_a = _optional_image_payload(body.image_a)
     img_b = _optional_image_payload(body.image_b)
     text_a = body.text_a.strip()
@@ -196,7 +198,7 @@ def _payload_from_create(body: JobCreate) -> Dict[str, Any]:
     }
 
 
-def _parse_sqlite_dt_utc(value: Optional[str]) -> Optional[datetime]:
+def _parse_sqlite_dt_utc(value: str | None) -> datetime | None:
     """SQLite `datetime('now')` 등 저장 시점을 UTC로 해석합니다(표준 naive 시각 문자열은 UTC 로 가정).
 
     과거 버그: 로컬 `datetime.now()`와 naive 문자열 비교 시 타임존 오프셋만큼 경과·ETA가 틀어짐."""
@@ -205,29 +207,29 @@ def _parse_sqlite_dt_utc(value: Optional[str]) -> Optional[datetime]:
     for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f"):
         try:
             dt = datetime.strptime(str(value).strip(), fmt)
-            return dt.replace(tzinfo=timezone.utc)
+            return dt.replace(tzinfo=UTC)
         except ValueError:
             continue
     return None
 
 
-def _utc_now_elapsed_since(ts_start: Optional[datetime]) -> Optional[float]:
+def _utc_now_elapsed_since(ts_start: datetime | None) -> float | None:
     if ts_start is None:
         return None
-    delta = datetime.now(timezone.utc) - ts_start
+    delta = datetime.now(UTC) - ts_start
     return max(0.0, delta.total_seconds())
 
 
 def _compute_job_progress(
     job_status: str,
-    started_at: Optional[str],
-    created_at: Optional[str],
-    counts: Dict[str, int],
-) -> Optional[Dict[str, Any]]:
+    started_at: str | None,
+    created_at: str | None,
+    counts: dict[str, int],
+) -> dict[str, Any] | None:
     """페르소나 LLM 태스크 진행률·남은 시간 추정(평균 페이스 기반)."""
     total = int(counts.get("total", 0))
     created_utc = _parse_sqlite_dt_utc(created_at)
-    elapsed_since_created_sec: Optional[float] = _utc_now_elapsed_since(created_utc)
+    elapsed_since_created_sec: float | None = _utc_now_elapsed_since(created_utc)
     pending = int(counts.get("pending", 0))
     running = int(counts.get("running", 0))
     completed = int(counts.get("completed", 0))
@@ -280,13 +282,13 @@ def _compute_job_progress(
     detail = " · ".join(parts)
 
     started_utc = _parse_sqlite_dt_utc(started_at)
-    elapsed_sec: Optional[float] = _utc_now_elapsed_since(started_utc)
-    now_utc = datetime.now(timezone.utc)
+    elapsed_sec: float | None = _utc_now_elapsed_since(started_utc)
+    now_utc = datetime.now(UTC)
 
-    avg_sec_per_task: Optional[float] = None
-    eta_sec: Optional[float] = None
-    eta_at: Optional[str] = None
-    note: Optional[str] = None
+    avg_sec_per_task: float | None = None
+    eta_sec: float | None = None
+    eta_at: str | None = None
+    note: str | None = None
 
     if failed > 0 and job_status not in ("completed", "failed"):
         note = "일부 태스크가 실패했습니다. 예상 시간은 남은 정상 분량 기준이며 실제와 다를 수 있습니다."
@@ -307,7 +309,7 @@ def _compute_job_progress(
         else:
             eta_at = (now_utc + timedelta(seconds=eta_sec)).replace(microsecond=0).isoformat(timespec="seconds")
 
-    display_pct: Optional[float] = 100.0 if job_status == "completed" else pct
+    display_pct: float | None = 100.0 if job_status == "completed" else pct
 
     return {
         "phase": phase,
@@ -332,7 +334,7 @@ def _compute_job_progress(
     }
 
 
-def _parse_summary_json(summary_json: Optional[str]) -> Optional[Dict[str, Any]]:
+def _parse_summary_json(summary_json: str | None) -> dict[str, Any] | None:
     if not summary_json:
         return None
     try:
@@ -358,17 +360,17 @@ app.add_middleware(
 
 
 @app.get("/health")
-def health() -> Dict[str, str]:
+def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
 @app.get("/meta/regions")
-def meta_regions() -> Dict[str, List[str]]:
+def meta_regions() -> dict[str, list[str]]:
     return KOREA_REGIONS
 
 
 @app.get("/meta/persona-filters")
-def meta_persona_filters() -> Dict[str, Any]:
+def meta_persona_filters() -> dict[str, Any]:
     """Nemotron-Personas-Korea 기반 벡터DB 필터 선택지(폼 채우기용)."""
     enum_fields = []
     for key, opt_list in FILTER_ENUMS_FOR_META.items():
@@ -391,12 +393,13 @@ def meta_persona_filters() -> Dict[str, Any]:
     }
 
 
-def _estimate_population_size(persona_filter: Mapping[str, Any]) -> Dict[str, Any]:
+def _estimate_population_size(persona_filter: Mapping[str, Any]) -> dict[str, Any]:
     """현재 persona_db에서 필터 조건에 맞는 표본 수를 빠르게 추정.
 
     전체 스캔이 길어지는 환경을 피하기 위해 스캔 건수/시간 상한을 둔다.
     """
     import time
+
     import chromadb
 
     db_path = str((REPO_ROOT / "persona_db").resolve())
@@ -448,7 +451,7 @@ def _estimate_population_size(persona_filter: Mapping[str, Any]) -> Dict[str, An
 
 
 @app.post("/meta/persona-population-estimate")
-async def meta_persona_population_estimate(body: PersonaFilterIn) -> Dict[str, Any]:
+async def meta_persona_population_estimate(body: PersonaFilterIn) -> dict[str, Any]:
     if body.age_min > body.age_max:
         raise HTTPException(400, "age_min must be <= age_max")
     filter_payload = body.model_dump()
@@ -497,7 +500,7 @@ async def meta_persona_population_estimate(body: PersonaFilterIn) -> Dict[str, A
 
 
 @app.get("/meta/queue-stats")
-def meta_queue_stats() -> Dict[str, Union[int, Dict[str, int]]]:
+def meta_queue_stats() -> dict[str, int | dict[str, int]]:
     """작업 상태별 건수(대시보드 KPI용)."""
     with get_conn() as conn:
         by_status = db.queue_status_counts(conn)
@@ -505,12 +508,12 @@ def meta_queue_stats() -> Dict[str, Union[int, Dict[str, int]]]:
         return {"total": total, "by_status": by_status}
 
 
-async def _finalize_llm_enqueue_async(job_id: int, title: str, payload: Dict[str, Any]) -> None:
+async def _finalize_llm_enqueue_async(job_id: int, title: str, payload: dict[str, Any]) -> None:
     """Chroma 검색 등 무거운 작업을 이벤트 루프를 막지 않도록 스레드에서 실행."""
     await asyncio.to_thread(finalize_llm_enqueue_sync, job_id, title, payload)
 
 
-def _finalize_payload_after_enqueue(job_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
+def _finalize_payload_after_enqueue(job_id: int, payload: dict[str, Any]) -> dict[str, Any]:
     try:
         normalized = normalize_job_payload_images(job_id, payload)
     except (FileNotFoundError, ValueError) as e:
@@ -523,7 +526,7 @@ def _finalize_payload_after_enqueue(job_id: int, payload: Dict[str, Any]) -> Dic
 
 
 @app.post("/jobs/assets", status_code=201)
-async def upload_job_asset(file: UploadFile = File(...)) -> Dict[str, str]:
+async def upload_job_asset(file: UploadFile = File(...)) -> dict[str, str]:
     """이미지 업로드 → staging 참조. POST /jobs 시 image_a/image_b에 asset_ref로 넣습니다."""
     data = await file.read()
     try:
@@ -562,7 +565,7 @@ def get_job_variant_image(job_id: int, variant: str):
 
 
 @app.post("/jobs", status_code=201)
-async def create_job(body: JobCreate, background_tasks: BackgroundTasks) -> Dict[str, int]:
+async def create_job(body: JobCreate, background_tasks: BackgroundTasks) -> dict[str, int]:
     _validate_variant_inputs(body.text_a, body.image_a, "안 A")
     _validate_variant_inputs(body.text_b, body.image_b, "안 B")
     _validate_image_in(body.image_a)
@@ -594,22 +597,22 @@ async def create_job(body: JobCreate, background_tasks: BackgroundTasks) -> Dict
 @app.get("/jobs")
 def list_jobs(
     limit: int = 200,
-    status: Optional[str] = None,
-    q: Optional[str] = None,
+    status: str | None = None,
+    q: str | None = None,
     omit_payload: bool = False,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """작업 목록. `omit_payload=true`면 payload_json을 빼고 `report_summary`만 조합합니다(대역폭 절약)."""
     with get_conn() as conn:
         if omit_payload:
             rows = db.fetch_jobs_extended(conn, limit=limit, status=status, q=q, include_payload=False)
-            out: List[Dict[str, Any]] = []
+            out: list[dict[str, Any]] = []
             for r in rows:
                 d = dict(r)
                 d["report_summary"] = _parse_summary_json(d.pop("summary_json", None))
                 out.append(d)
             return out
         rows = db.fetch_jobs_extended(conn, limit=limit, status=status, q=q, include_payload=True)
-        out2: List[Dict[str, Any]] = []
+        out2: list[dict[str, Any]] = []
         for r in rows:
             d = dict(r)
             d["report_summary"] = _parse_summary_json(d.pop("summary_json", None))
@@ -618,7 +621,7 @@ def list_jobs(
 
 
 @app.get("/jobs/{job_id}")
-def get_job(job_id: int) -> Dict[str, Any]:
+def get_job(job_id: int) -> dict[str, Any]:
     with get_conn() as conn:
         row = db.fetch_job_with_result(conn, job_id)
         if row is None:
@@ -641,7 +644,7 @@ def get_job(job_id: int) -> Dict[str, Any]:
 
 
 @app.post("/jobs/{job_id}/report/reaggregate", status_code=200)
-def reaggregate_job_report(job_id: int) -> Dict[str, Any]:
+def reaggregate_job_report(job_id: int) -> dict[str, Any]:
     """저장된 partial JSONL을 다시 집계해 리포트 파일·DB 요약을 갱신합니다."""
     with get_conn() as conn:
         try:
@@ -654,15 +657,15 @@ def reaggregate_job_report(job_id: int) -> Dict[str, Any]:
 class JobCloneOptions(BaseModel):
     """원본 job 재실행 옵션. 모두 비워두면 원본 그대로 복제·재실행."""
 
-    title: Optional[str] = None
+    title: str | None = None
 
 
 @app.post("/jobs/{job_id}/clone", status_code=201)
 async def clone_job(
     job_id: int,
-    body: Optional[JobCloneOptions],
+    body: JobCloneOptions | None,
     background_tasks: BackgroundTasks,
-) -> Dict[str, int]:
+) -> dict[str, int]:
     """완료·실패·기타 모든 상태의 job을 원본 payload 그대로 새 job으로 복제 등록한다.
 
     payload 자체를 수정해 재실행하려는 경우에는 UI에서 `?fromJob=ID` prefill 흐름
@@ -713,7 +716,7 @@ async def clone_job(
 
 
 @app.get("/jobs/{job_id}/report")
-def get_report(job_id: int) -> Dict[str, Any]:
+def get_report(job_id: int) -> dict[str, Any]:
     with get_conn() as conn:
         res = db.fetch_job_result(conn, job_id)
         if res is None:
@@ -725,20 +728,20 @@ def get_report(job_id: int) -> Dict[str, Any]:
 
 
 @app.get("/notifications")
-def list_notifications(limit: int = 100) -> List[Dict[str, Any]]:
+def list_notifications(limit: int = 100) -> list[dict[str, Any]]:
     with get_conn() as conn:
         rows = db.fetch_notifications(conn, limit=limit)
         return [dict(r) for r in rows]
 
 
 @app.get("/notifications/unread-count")
-def unread_count() -> Dict[str, int]:
+def unread_count() -> dict[str, int]:
     with get_conn() as conn:
         return {"count": db.unread_notification_count(conn)}
 
 
 @app.patch("/notifications/{notification_id}/read")
-def mark_read(notification_id: int) -> Dict[str, str]:
+def mark_read(notification_id: int) -> dict[str, str]:
     with get_conn() as conn:
         db.mark_notification_read(conn, notification_id)
     return {"status": "ok"}

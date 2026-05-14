@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -33,6 +32,6 @@ class JobSummary:
     status: str
     title: str
     created_at: str
-    started_at: Optional[str]
-    finished_at: Optional[str]
-    error_message: Optional[str]
+    started_at: str | None
+    finished_at: str | None
+    error_message: str | None

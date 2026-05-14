@@ -2,12 +2,10 @@ import argparse
 import signal
 import threading
 from pathlib import Path
-from typing import Union
 
 from nemotron_ab import db
 from nemotron_ab.db_engine import is_sqlite, resolve_database_url
 from nemotron_ab.queue_worker import run_worker_loop, run_worker_tick
-
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 
@@ -40,7 +38,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _resolve_worker_target(args: argparse.Namespace) -> Union[Path, str]:
+def _resolve_worker_target(args: argparse.Namespace) -> Path | str:
     """워커가 사용할 DB 타깃을 결정. CLI > DATABASE_URL > APP_SQLITE_PATH > 기본."""
     if args.database_url:
         return str(args.database_url).strip()

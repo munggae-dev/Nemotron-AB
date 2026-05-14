@@ -19,7 +19,6 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Tuple
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 
@@ -58,7 +57,7 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def _image_b64(path: Path | None) -> Tuple[str, str]:
+def _image_b64(path: Path | None) -> tuple[str, str]:
     if path is None:
         return base64.standard_b64decode(_MIN_PNG_B64), "builtin-1x1.png"
     if not path.is_file():

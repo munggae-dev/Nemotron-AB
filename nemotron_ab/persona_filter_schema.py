@@ -2,17 +2,17 @@
 
 직업(occupation)은 문자열 다양성이 커 부분 문자열 검색(occupation_contains)으로 처리합니다."""
 
-from typing import Dict, List, Mapping, Tuple
+from collections.abc import Mapping
 
 # target_personas_20_59.jsonl 전량 스트림 uniq (669,558건)
-MARITAL_STATUS_OPTIONS: Tuple[str, ...] = (
+MARITAL_STATUS_OPTIONS: tuple[str, ...] = (
     "미혼",
     "배우자있음",
     "사별",
     "이혼",
 )
 
-EDUCATION_LEVEL_OPTIONS: Tuple[str, ...] = (
+EDUCATION_LEVEL_OPTIONS: tuple[str, ...] = (
     "2~3년제 전문대학",
     "4년제 대학교",
     "고등학교",
@@ -22,7 +22,7 @@ EDUCATION_LEVEL_OPTIONS: Tuple[str, ...] = (
     "초등학교",
 )
 
-HOUSING_TYPE_OPTIONS: Tuple[str, ...] = (
+HOUSING_TYPE_OPTIONS: tuple[str, ...] = (
     "다세대주택",
     "단독주택",
     "비주거용 건물 내 주택",
@@ -31,12 +31,12 @@ HOUSING_TYPE_OPTIONS: Tuple[str, ...] = (
     "주택 이외의 거처",
 )
 
-MILITARY_STATUS_OPTIONS: Tuple[str, ...] = (
+MILITARY_STATUS_OPTIONS: tuple[str, ...] = (
     "비현역",
     "현역",
 )
 
-FAMILY_TYPE_OPTIONS: Tuple[str, ...] = (
+FAMILY_TYPE_OPTIONS: tuple[str, ...] = (
     "4세대이상",
     "가구주+기타친인척",
     "기타1세대",
@@ -78,7 +78,7 @@ FAMILY_TYPE_OPTIONS: Tuple[str, ...] = (
     "혼자 거주 (배우자 별거)",
 )
 
-FILTER_ENUMS_FOR_META: Mapping[str, List[str]] = {
+FILTER_ENUMS_FOR_META: Mapping[str, list[str]] = {
     "marital_status": list(MARITAL_STATUS_OPTIONS),
     "education_level": list(EDUCATION_LEVEL_OPTIONS),
     "family_type": list(FAMILY_TYPE_OPTIONS),
@@ -86,7 +86,7 @@ FILTER_ENUMS_FOR_META: Mapping[str, List[str]] = {
     "military_status": list(MILITARY_STATUS_OPTIONS),
 }
 
-FILTER_ENUM_LOOKUP: Dict[str, frozenset] = {
+FILTER_ENUM_LOOKUP: dict[str, frozenset] = {
     k: frozenset(v) for k, v in FILTER_ENUMS_FOR_META.items()
 }
 
