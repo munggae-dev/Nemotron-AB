@@ -4,8 +4,6 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from sqlalchemy import inspect
-
 from nemotron_ab.db_engine import (
     DBConnection,
     ENV_DATABASE_URL,
@@ -98,11 +96,26 @@ _INSERT_JOB_RESULT_SQL = (
 )
 
 
+def _is_sqlite_conn(conn: ConnectionLike) -> bool:
+    """주어진 커넥션이 SQLite 위에서 동작 중인지 판정."""
+    if isinstance(conn, sqlite3.Connection):
+        return True
+    if isinstance(conn, DBConnection):
+        return conn.dialect == "sqlite"
+    return True
+
+
 def init_db(conn: ConnectionLike) -> None:
+    """스키마 초기화 — dialect 별 자동 증가 컬럼 표현 차이만 분기.
+
+    - SQLite : ``INTEGER PRIMARY KEY AUTOINCREMENT``
+    - Postgres: ``BIGSERIAL PRIMARY KEY`` (PG 10+ 의 IDENTITY 대신 호환성 우선)
+    """
+    autoinc = "INTEGER PRIMARY KEY AUTOINCREMENT" if _is_sqlite_conn(conn) else "BIGSERIAL PRIMARY KEY"
     conn.executescript(
-        """
+        f"""
         CREATE TABLE IF NOT EXISTS jobs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {autoinc},
             status TEXT NOT NULL,
             title TEXT NOT NULL,
             payload_json TEXT NOT NULL,
@@ -113,7 +126,7 @@ def init_db(conn: ConnectionLike) -> None:
         );
 
         CREATE TABLE IF NOT EXISTS job_results (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {autoinc},
             job_id INTEGER NOT NULL UNIQUE,
             report_json_path TEXT NOT NULL,
             partial_jsonl_path TEXT NOT NULL,
@@ -123,7 +136,7 @@ def init_db(conn: ConnectionLike) -> None:
         );
 
         CREATE TABLE IF NOT EXISTS notifications (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {autoinc},
             job_id INTEGER,
             type TEXT NOT NULL,
             title TEXT NOT NULL,
@@ -134,7 +147,7 @@ def init_db(conn: ConnectionLike) -> None:
         );
 
         CREATE TABLE IF NOT EXISTS job_tasks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {autoinc},
             job_id INTEGER NOT NULL,
             task_type TEXT NOT NULL,
             payload_json TEXT NOT NULL,
@@ -160,12 +173,17 @@ def init_db(conn: ConnectionLike) -> None:
 def _existing_columns(conn: ConnectionLike, table: str) -> set:
     """테이블의 컬럼 이름 집합을 반환 — dialect-agnostic.
 
-    SQLite 는 PRAGMA, Postgres 는 SA inspector 사용.
+    SQLite 는 PRAGMA, Postgres 는 information_schema 를 직접 조회한다.
+    SA inspector 를 사용하지 않는 이유: 동일 트랜잭션 안에서 방금 CREATE 한
+    테이블을 inspector 가 못 보는 경우가 있다 (PG DDL 가시성).
     """
-    if isinstance(conn, DBConnection) and conn.dialect != "sqlite":
-        engine = conn.engine
-        insp = inspect(engine)
-        return {col["name"] for col in insp.get_columns(table)}
+    if isinstance(conn, DBConnection) and conn.dialect == "postgresql":
+        cur = conn.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = ? AND table_schema = current_schema()",
+            (table,),
+        )
+        return {str(row[0]) for row in cur.fetchall()}
     cur = conn.execute(f"PRAGMA table_info({table})")
     return {str(row[1]) for row in cur.fetchall()}
 
