@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { apiGet, apiPost, cloneJob, type JobProgress, type JobRow } from "@/lib/api";
+import { useParams } from "next/navigation";
+import { apiGet, apiPost, type JobProgress, type JobRow } from "@/lib/api";
 import { getApiBaseUrl } from "@/lib/api-base";
 
 type ReportJson = Record<string, unknown>;
@@ -195,7 +195,6 @@ function JobProgressPanel({ progress }: { progress: JobProgress }) {
 
 export default function JobDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const idStr = typeof params?.id === "string" ? params.id : null;
   const [refreshKey, setRefreshKey] = useState(0);
   const [job, setJob] = useState<JobRow | null>(null);
@@ -203,8 +202,6 @@ export default function JobDetailPage() {
   const [err, setErr] = useState<string | null>(null);
   const [reaggLoading, setReaggLoading] = useState(false);
   const [reaggErr, setReaggErr] = useState<string | null>(null);
-  const [cloneLoading, setCloneLoading] = useState(false);
-  const [cloneErr, setCloneErr] = useState<string | null>(null);
 
   const reload = useCallback(() => {
     setRefreshKey((k) => k + 1);
@@ -266,22 +263,6 @@ export default function JobDetailPage() {
       setReaggErr(e instanceof Error ? e.message : String(e));
     } finally {
       setReaggLoading(false);
-    }
-  }
-
-  async function onCloneAsIs() {
-    if (!idStr) return;
-    const id = Number(idStr);
-    if (!Number.isFinite(id) || id <= 0) return;
-    setCloneErr(null);
-    setCloneLoading(true);
-    try {
-      const res = await cloneJob(id);
-      router.push(`/jobs/${res.id}`);
-    } catch (e: unknown) {
-      setCloneErr(e instanceof Error ? e.message : String(e));
-    } finally {
-      setCloneLoading(false);
     }
   }
 
@@ -364,18 +345,6 @@ export default function JobDetailPage() {
                 </span>
                 리포트 재집계
               </button>
-              <Link className="btn secondary" href={`/jobs/new?fromJob=${idStr}`}>
-                <span className="material-symbols-outlined" style={{ fontSize: 18, verticalAlign: "middle", marginRight: 6 }}>
-                  edit
-                </span>
-                복제해서 수정
-              </Link>
-              <button type="button" className="btn secondary" disabled={cloneLoading} onClick={() => void onCloneAsIs()}>
-                <span className="material-symbols-outlined" style={{ fontSize: 18, verticalAlign: "middle", marginRight: 6 }}>
-                  content_copy
-                </span>
-                {cloneLoading ? "복제 중…" : "원본대로 다시 실행"}
-              </button>
               <button type="button" className="btn" onClick={() => reload()} disabled={reaggLoading}>
                 <span className="material-symbols-outlined" style={{ fontSize: 18, verticalAlign: "middle", marginRight: 6 }}>
                   refresh
@@ -403,7 +372,6 @@ export default function JobDetailPage() {
 
       {err && <div className="msg err">{err}</div>}
       {reaggErr && <div className="msg err">{reaggErr}</div>}
-      {cloneErr && <div className="msg err">{cloneErr}</div>}
 
       {job?.status === "completed" && report && !overall && (
         <>
@@ -454,22 +422,6 @@ export default function JobDetailPage() {
               워커가 처리 중이면 완료 후 이 페이지를 새로고침하거나 위의 다시 불러오기를 사용하세요.
             </p>
           )}
-          {idStr ? (
-            <div className="row" style={{ marginTop: 12, gap: 8, flexWrap: "wrap" }}>
-              <Link className="btn secondary" href={`/jobs/new?fromJob=${idStr}`}>
-                <span className="material-symbols-outlined" style={{ fontSize: 18, verticalAlign: "middle", marginRight: 6 }}>
-                  edit
-                </span>
-                복제해서 수정
-              </Link>
-              <button type="button" className="btn secondary" disabled={cloneLoading} onClick={() => void onCloneAsIs()}>
-                <span className="material-symbols-outlined" style={{ fontSize: 18, verticalAlign: "middle", marginRight: 6 }}>
-                  content_copy
-                </span>
-                {cloneLoading ? "복제 중…" : "원본대로 다시 실행"}
-              </button>
-            </div>
-          ) : null}
           {job.status === "completed" && !report && !err && (
             <p style={{ color: "var(--on-surface-variant)", marginBottom: 0 }}>보고서 파일을 불러올 수 없습니다.</p>
           )}

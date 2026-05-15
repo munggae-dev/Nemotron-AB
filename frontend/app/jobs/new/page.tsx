@@ -75,7 +75,7 @@ const defaultForm = {
   profile: "small",
   evaluator: "openai",
   llm_base_url: "http://localhost:11434/v1",
-  llm_model: "gemma3:4b-it-qat",
+  llm_model: "gemma4:e2b-it-q4_K_M",
   response_format_json: false,
   prompt_profile: "full" as "full" | "compact",
   max_persona_chars: 1500,
@@ -259,9 +259,9 @@ export default function NewJobPage() {
           evaluator: String(payload.evaluator ?? defaultForm.evaluator),
           llm_base_url: String(
             payload.llm_base_url ??
-              (typeof payload.ollama_base_url === "string"
-                ? `${String(payload.ollama_base_url).replace(/\/$/, "")}/v1`
-                : defaultForm.llm_base_url),
+            (typeof payload.ollama_base_url === "string"
+              ? `${String(payload.ollama_base_url).replace(/\/$/, "")}/v1`
+              : defaultForm.llm_base_url),
           ),
           llm_model: String(payload.llm_model ?? payload.ollama_model ?? defaultForm.llm_model),
           response_format_json:
@@ -889,7 +889,7 @@ export default function NewJobPage() {
                 type="text"
                 value={form.llm_model}
                 onChange={(e) => setForm({ ...form, llm_model: e.target.value })}
-                placeholder="예: gpt-4o-mini, gemma3:4b-it-qat, claude-via-proxy/..."
+                placeholder="예: gpt-4o-mini, gemma4:e2b-it-q4_K_M, claude-via-proxy/..."
                 autoComplete="off"
               />
               <small className="hint">비우면 서버 환경변수 `LLM_MODEL` 또는 기본값 사용</small>
