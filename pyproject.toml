@@ -8,7 +8,8 @@ version = "0.1.0"
 description = "Nemotron-Personas-Korea based short-text & image A/B evaluation toolkit (FastAPI + Next.js + SQLite + worker)."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "TBD" }
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "Nemotron-AB Maintainers" }]
 keywords = ["nemotron", "personas", "korean", "ab-testing", "llm", "ollama", "chroma", "evaluation"]
 classifiers = [

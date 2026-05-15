@@ -309,10 +309,20 @@ python scripts/download_data.py
 
 ## 라이선스 / 외부 의존물
 
-- 본 저장소 코드: 첫 정식 릴리스 전에 확정 — [LICENSE](LICENSE) 참고.
-- 원천 데이터셋: [`nvidia/Nemotron-Personas-Korea`](https://huggingface.co/datasets/nvidia/Nemotron-Personas-Korea) — **CC-BY-4.0**.
-- 기본 임베딩 모델: [`BAAI/bge-m3`](https://huggingface.co/BAAI/bge-m3) — **MIT**. 가중치는 런타임에 Hugging Face에서 다운로드되며 본 저장소에 포함되지 않습니다.
-- 기본 LLM 평가기: 사용자의 로컬 [Ollama](https://ollama.com/) 모델(예: `gemma`, `llava`). 각 모델의 라이선스는 별도 확인 필요.
+라이선스는 **역할별로 다릅니다.** 혼동하지 않도록 아래 표를 참고하세요.
+
+| 구분 | 라이선스 | 설명 |
+|------|----------|------|
+| **본 저장소 소스 코드** | [**Apache-2.0**](LICENSE) | `nemotron_ab/`, `backend/`, `frontend/`, `scripts/` 등. [NOTICE](NOTICE) 에 요약·서드파티 안내. |
+| **페르소나 데이터·벡터DB** | [**CC-BY-4.0**](https://creativecommons.org/licenses/by/4.0/) | [`nvidia/Nemotron-Personas-Korea`](https://huggingface.co/datasets/nvidia/Nemotron-Personas-Korea) 파생물. `target_personas_20_59.jsonl`, `persona_db/`, HF [`renew-dev/nemotron-ab-persona-db-bge-m3`](https://huggingface.co/datasets/renew-dev/nemotron-ab-persona-db-bge-m3). **출처 표기·변경 사실** 의무. |
+| **기본 임베딩 모델** | **MIT** | [`BAAI/bge-m3`](https://huggingface.co/BAAI/bge-m3) — 가중치는 런타임에 HF에서 받으며 본 저장소에 포함되지 않음. |
+| **LLM 평가기** | **모델별 상이** | 로컬 [Ollama](https://ollama.com/) 등 사용자가 지정한 모델 라이선스를 각자 확인. |
+
+CC-BY-4.0 데이터를 사용·재배포할 때는 NVIDIA 데이터셋 링크와 “19~59세 필터 + bge-m3 임베딩 + Chroma 인덱스” 등 **가공 내역**을 함께 밝혀 주세요. HF 배포본은 `persona_db/manifest.json` 및 데이터셋 카드 README를 따릅니다.
+
+### Third-party (요약)
+
+전체 목록·권장 attribution 문구: **[NOTICE](NOTICE)**. 주요 런타임 의존성 버전은 `pyproject.toml`, `frontend/package.json` 을 참고하세요.
 
 ## 로드맵
 

@@ -10,6 +10,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning asp
 
 ### Added
 
+- **라이선스 정리**: 소스 코드 Apache-2.0 ([LICENSE](LICENSE), [NOTICE](NOTICE)), 페르소나 데이터·`persona_db` CC-BY-4.0 유지.
 - **Apple Silicon (MPS) 임베딩 가속** (`nemotron_ab/torch_device.py`)
   - `auto` 디바이스 우선순위: `cuda` > `mps` > `cpu`.
   - `scripts/build_vectordb.py`, `scripts/sanity_check_vectordb.py`, `scripts/ab_validator.py --retrieval-device`, API 워커 검색(`RETRIEVAL_DEVICE`), LangChain 경로(`CHROMA_LC_DEVICE`)에 반영.

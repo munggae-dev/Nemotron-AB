@@ -1,0 +1,58 @@
+Nemotron-AB
+Copyright 2026 renew-dev and Nemotron-AB Contributors
+
+This product is licensed under the Apache License, Version 2.0.
+See the LICENSE file for the full license text.
+
+================================================================================
+Third-party components and data (summary)
+================================================================================
+
+This repository bundles or interacts with the following notable third-party
+works. Each item retains its own license. This NOTICE file does not replace
+compliance with those licenses.
+
+--- Application source code (this repository) ---
+
+  License: Apache-2.0
+  Files: nemotron_ab/, backend/, frontend/, scripts/ (excluding derived data
+         artifacts listed below)
+
+--- Derived data artifacts (not part of Apache-2.0 source) ---
+
+  NVIDIA Nemotron-Personas-Korea
+    URL: https://huggingface.co/datasets/nvidia/Nemotron-Personas-Korea
+    License: Creative Commons Attribution 4.0 International (CC-BY-4.0)
+    Notes: target_personas_20_59.jsonl and persona_db/ (including pre-built
+            distributions on Hugging Face Hub) are derivative works. Users must
+            provide attribution and indicate changes. See persona_db/manifest.json
+            and the HF dataset card README when using the pre-built vector DB.
+
+--- Runtime models (downloaded separately, not shipped in this repo) ---
+
+  BAAI/bge-m3 (default embedding model)
+    URL: https://huggingface.co/BAAI/bge-m3
+    License: MIT
+
+  User-selected Ollama / OpenAI-compatible LLMs
+    License: varies by model chosen by the operator (not included here)
+
+--- Major Python dependencies (see pyproject.toml for versions) ---
+
+  FastAPI, Uvicorn, Pydantic, SQLAlchemy, LangChain, langchain-chroma,
+  ChromaDB, sentence-transformers, Pillow, huggingface-hub, and their
+  transitive dependencies — each subject to its own license (typically
+  permissive OSS). Refer to installed package metadata for exact terms.
+
+--- Frontend dependencies (see frontend/package.json) ---
+
+  Next.js, React, and transitive npm packages — each subject to its own
+  license. Refer to frontend/package-lock.json or npm license reports.
+
+================================================================================
+
+For CC-BY-4.0 persona data, suggested attribution text:
+
+  "Contains synthetic personas derived from NVIDIA Nemotron-Personas-Korea
+   (CC-BY-4.0), filtered to ages 19–59 and embedded with BAAI/bge-m3 for
+   retrieval. Built by the Nemotron-AB project."

@@ -61,4 +61,6 @@ python scripts/build_vectordb.py --device cuda   # persona_db/ 생성
 
 ## 라이선스
 
-저장소 라이선스는 첫 정식 릴리스 전에 확정됩니다. 그 전까지의 기여는 라이선스 결정에 동의한다는 것을 전제로 합니다. 자세한 내용은 [LICENSE](LICENSE) 를 확인하세요.
+- **소스 코드 기여**는 [Apache-2.0](LICENSE) 에 따라 배포됩니다. PR을내면 동일 조건으로 기여하는 것에 동의한 것으로 봅니다.
+- **데이터·벡터DB**(`persona_db/`, HF 사전 빌드 DB 등)는 NVIDIA `Nemotron-Personas-Korea` 파생물로 **CC-BY-4.0** 입니다. 데이터 관련 PR·재배포 시 attribution 을 유지하세요.
+- 서드파티 요약: [NOTICE](NOTICE)
