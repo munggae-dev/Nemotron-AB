@@ -113,11 +113,11 @@ def _run_ab_validator_subprocess(cmd: list[str]) -> subprocess.CompletedProcess:
         raise RuntimeError(_format_timeout_error(cmd, timeout, e)) from e
 
 import chromadb
-import torch
 from sentence_transformers import SentenceTransformer
 
 from nemotron_ab.campaign_assets import payload_has_any_image
 from nemotron_ab.config import get_embed_model_name
+from nemotron_ab.torch_device import resolve_torch_device
 from nemotron_ab.persona_filter_schema import retrieval_fanout_multiplier
 from nemotron_ab.persona_where import chroma_where_and, district_prefix_keyword
 
@@ -173,7 +173,7 @@ def _retrieve_filtered_personas(payload: dict, max_personas: int) -> list[dict]:
     collection = client.get_collection(name=collection_name)
     global _RETRIEVAL_MODEL
     if _RETRIEVAL_MODEL is None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = resolve_torch_device(os.environ.get("RETRIEVAL_DEVICE", "auto"))
         _RETRIEVAL_MODEL = SentenceTransformer(get_embed_model_name(), device=device)
 
     persona_filter = payload["persona_filter"]

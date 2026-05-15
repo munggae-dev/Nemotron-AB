@@ -17,6 +17,12 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from nemotron_ab.config import get_embed_model_name
+from nemotron_ab.torch_device import (
+    DEVICE_CHOICES,
+    empty_device_cache,
+    prepare_sentence_transformer,
+    resolve_torch_device,
+)
 
 
 def parse_args():
@@ -29,7 +35,7 @@ def parse_args():
         default=None,
         help="임베딩 모델. 미지정 시 env EMBED_MODEL_NAME 또는 기본값(BAAI/bge-m3) 사용.",
     )
-    parser.add_argument("--device", choices=["auto", "cuda", "cpu"], default="auto")
+    parser.add_argument("--device", choices=list(DEVICE_CHOICES), default="auto")
     parser.add_argument("--batch-size", type=int, default=4000)
     parser.add_argument("--encode-batch-size", type=int, default=1024)
     parser.add_argument("--upsert-batch-size", type=int, default=5000)
@@ -44,7 +50,7 @@ def parse_args():
         "--fp16",
         choices=["auto", "on", "off"],
         default="auto",
-        help="CUDA일 때 FP16 인코딩. TITAN RTX 등 Turing 이상에서 1.5~2배 속도. 기본 auto=CUDA면 on, CPU면 off.",
+        help="FP16 인코딩. auto=CUDA만 on (MPS/CPU는 fp32). CUDA Turing+에서 1.5~2배 속도.",
     )
     parser.add_argument("--max-records", type=int, default=0, help="0이면 전체 처리")
     parser.add_argument(
@@ -61,17 +67,9 @@ def parse_args():
     return parser.parse_args()
 
 
-def resolve_device(device_arg):
-    if device_arg == "auto":
-        return "cuda" if torch.cuda.is_available() else "cpu"
-    if device_arg == "cuda" and not torch.cuda.is_available():
-        print("[WARN] CUDA를 요청했지만 GPU를 찾지 못했습니다. CPU로 전환합니다.")
-        return "cpu"
-    return device_arg
-
 def main():
     args = parse_args()
-    device = resolve_device(args.device)
+    device = resolve_torch_device(args.device)
     model_name = get_embed_model_name(args.model_name)
     t0 = time.perf_counter()
 
@@ -83,11 +81,9 @@ def main():
         name=args.collection_name
     )
     model = SentenceTransformer(model_name, device=device)
-    if args.max_seq_length and args.max_seq_length > 0:
-        model.max_seq_length = args.max_seq_length
-    use_fp16 = (args.fp16 == "on") or (args.fp16 == "auto" and device == "cuda")
-    if use_fp16:
-        model.half()
+    use_fp16 = prepare_sentence_transformer(
+        model, device, args.fp16, args.max_seq_length,
+    )
     print(
         f"임베딩 모델 로드 완료: {model_name} "
         f"(device={device}, fp16={use_fp16}, max_seq_length={model.max_seq_length})"
@@ -161,9 +157,7 @@ def main():
         inserted += len(docs)
         print(f"{inserted}건 저장 완료...")
         docs, metadatas, ids = [], [], []
-        if device == "cuda":
-            # 활성화 메모리 단편화로 인한 OOM 방지
-            torch.cuda.empty_cache()
+        empty_device_cache(device)
 
     # 전체 입력 라인 수(진행률 표시용). 빠르게 한 번만 카운트.
     total_lines = 0

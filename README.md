@@ -105,7 +105,8 @@ npm run dev
 | `API_INTERNAL_URL` | Next 서버가 FastAPI로 붙을 URL(SSR·rewrite 목적지). 기본 `http://127.0.0.1:8010` |
 | `PERSONA_RETRIEVE_BACKEND` | 비우면 기본(Chroma + SentenceTransformer). `langchain_chroma`면 LangChain Chroma 검색 경로 |
 | `EMBED_MODEL_NAME` | 임베딩 모델(Sentence-Transformers/HF 호환). 미지정 시 기본값 `BAAI/bge-m3` (MIT, 1024d). 변경 시 `persona_db` 재빌드 필요 |
-| `CHROMA_LC_DEVICE` | `cuda` 또는 기본 `cpu` — LangChain 임베딩 디바이스 |
+| `CHROMA_LC_DEVICE` | LangChain 임베딩 디바이스: `auto`(기본, cuda>mps>cpu), `cuda`, `mps`, `cpu` |
+| `RETRIEVAL_DEVICE` | API/워커 Chroma 검색 임베딩 디바이스: `auto`(기본), `cuda`, `mps`, `cpu` |
 | `NEMOTRON_AB_PY` | 레거시 서브프로세스용 Python 실행 경로 오버라이드(기본 `./venv/bin/python` 또는 현재 인터프리터) |
 
 ## Docker Compose (선택)
@@ -193,7 +194,13 @@ python scripts/download_data.py
 ### 옵션 A — 직접 빌드 (GPU 권장)
 
 ```bash
+# NVIDIA GPU
 ./venv/bin/python scripts/build_vectordb.py --device cuda
+
+# Apple Silicon (M1/M2/M3/M4) — Metal(MPS) 가속
+./venv/bin/python scripts/build_vectordb.py --device mps
+# 또는 자동 선택 (cuda > mps > cpu)
+./venv/bin/python scripts/build_vectordb.py --device auto
 ```
 
 `target_personas_20_59.jsonl` 기준으로 **`marital_status`, `education_level`, `family_type`, `housing_type`, `military_status`** 를 메타데이터에 넣으며, 임베딩 텍스트에도 같은 맥락이 반영됩니다. 기존에 만든 `persona_db`에는 이 필드가 없을 수 있으니, 웹의 Nemotron 세부 필터를 쓰려면 **위 스크립트로 DB를 다시 빌드**하세요. 선택지 목록은 API `GET /meta/persona-filters` 또는 `nemotron_ab/persona_filter_schema.py` 를 참고하면 됩니다.
@@ -204,7 +211,7 @@ python scripts/download_data.py
 - `encode-batch-size=128` (VRAM 여유 있으면 256까지)
 - `upsert-batch-size=5000`
 - `max-seq-length=512` (데이터 실측 토큰수 max 507 / p99 462 → 잘림 없음)
-- `--fp16 auto` (CUDA 면 자동 ON)
+- `--fp16 auto` (CUDA 면 자동 ON; MPS/CPU 는 fp32)
 
 전체 67만 건 기준 약 **100~150 rows/s, 90~120분** 소요. 중단되면 동일 명령에 `--resume` 만 붙이면 이어서 진행합니다.
 
@@ -315,5 +322,5 @@ python scripts/download_data.py
 4. ~~레거시 UI/UX 고도화~~ → Next.js UI로 완전 이전
 5. ~~단위/통합 테스트 본격 추가~~ (단위 61건 + 통합 3건 + `needs_postgres` smoke — [tests/](tests/) 참고)
 6. 평가 도메인별 프롬프트 프리셋(마케팅, 공지, UI 카피 등) 단계적 제공
-7. Apple Silicon (MPS) 임베딩 가속 — `CHROMA_LC_DEVICE` 와 `scripts/build_vectordb.py --device` 에 `mps` 분기 추가, `auto` 기본값을 `cuda > mps > cpu` 우선순위로. M-series 맥에서 임베딩 4~8배 가속 예상.
+7. ~~Apple Silicon (MPS) 임베딩 가속~~ — `CHROMA_LC_DEVICE`·`RETRIEVAL_DEVICE`·`build_vectordb.py --device` 에 `mps` 및 `auto`(cuda>mps>cpu) 반영.
 8. SQLite ↔ PostgreSQL 데이터 이전 스크립트(`scripts/migrate_sqlite_to_postgres.py`) — 운영 데이터 보존 이전 자동화 (현재는 새 DB 권장).

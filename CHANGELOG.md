@@ -10,6 +10,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning asp
 
 ### Added
 
+- **Apple Silicon (MPS) 임베딩 가속** (`nemotron_ab/torch_device.py`)
+  - `auto` 디바이스 우선순위: `cuda` > `mps` > `cpu`.
+  - `scripts/build_vectordb.py`, `scripts/sanity_check_vectordb.py`, `scripts/ab_validator.py --retrieval-device`, API 워커 검색(`RETRIEVAL_DEVICE`), LangChain 경로(`CHROMA_LC_DEVICE`)에 반영.
+  - FP16 `auto` 는 CUDA 전용(MPS/CPU 는 fp32로 Metal/CPU 가속만 사용).
 - **LLM Provider 추상화** (`nemotron_ab/llm_provider.py`)
   - LangChain `ChatOpenAI` 기반의 단일 진입점. Ollama(/v1), OpenAI 등 OpenAI 호환 엔드포인트를 동일 코드 경로로 호출.
   - `LLMConfig` (env-only API 키 마스킹 repr), `resolve_llm_config()`, `make_chat_llm()`, `extract_usage()` 헬퍼.

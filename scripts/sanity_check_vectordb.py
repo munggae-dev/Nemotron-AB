@@ -21,7 +21,6 @@ from collections import Counter
 from pathlib import Path
 
 import chromadb
-import torch
 from sentence_transformers import SentenceTransformer
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -29,6 +28,11 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from nemotron_ab.config import get_embed_model_name
+from nemotron_ab.torch_device import (
+    DEVICE_CHOICES,
+    prepare_sentence_transformer,
+    resolve_torch_device,
+)
 
 DEFAULT_QUERIES = [
     "20대 여성 직장인, 패션과 SNS 관심 많음",
@@ -44,7 +48,7 @@ def parse_args():
     p.add_argument("--collection-name", default="marketing_personas")
     p.add_argument("--model-name", default=None,
                    help="임베딩 모델. 미지정 시 env EMBED_MODEL_NAME 또는 기본값.")
-    p.add_argument("--device", choices=["auto", "cuda", "cpu"], default="auto")
+    p.add_argument("--device", choices=list(DEVICE_CHOICES), default="auto")
     p.add_argument("--top-k", type=int, default=5)
     p.add_argument(
         "--queries",
@@ -59,18 +63,9 @@ def parse_args():
     return p.parse_args()
 
 
-def resolve_device(arg: str) -> str:
-    if arg == "auto":
-        return "cuda" if torch.cuda.is_available() else "cpu"
-    if arg == "cuda" and not torch.cuda.is_available():
-        print("[WARN] CUDA 요청했지만 GPU 없음. CPU로 폴백.")
-        return "cpu"
-    return arg
-
-
 def main() -> int:
     args = parse_args()
-    device = resolve_device(args.device)
+    device = resolve_torch_device(args.device)
 
     t0 = time.perf_counter()
     client = chromadb.PersistentClient(path=args.db_path)
@@ -135,9 +130,7 @@ def main() -> int:
         model = SentenceTransformer(
             get_embed_model_name(args.model_name), device=device,
         )
-        model.max_seq_length = 512
-        if device == "cuda":
-            model.half()
+        prepare_sentence_transformer(model, device, "auto", 512)
         for q in queries:
             qe = model.encode(
                 [q],

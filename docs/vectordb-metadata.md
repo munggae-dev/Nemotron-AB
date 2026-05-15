@@ -83,8 +83,10 @@ Chroma 메타만으로 부분 검색이 어려워, API의 `persona_filter.occupa
 ./venv/bin/python scripts/download_data.py
 
 # 2) 벡터 DB 생성/갱신
-./venv/bin/python scripts/build_vectordb.py --device cuda
-# 기본값: --max-seq-length 512 --encode-batch-size 128 --fp16 auto
+./venv/bin/python scripts/build_vectordb.py --device cuda   # NVIDIA GPU
+# ./venv/bin/python scripts/build_vectordb.py --device mps  # Apple Silicon (Metal)
+# ./venv/bin/python scripts/build_vectordb.py --device auto # cuda > mps > cpu
+# 기본값: --max-seq-length 512 --encode-batch-size 128 --fp16 auto (CUDA만 fp16)
 
 # 3) (선택) 검증/매니페스트
 ./venv/bin/python scripts/sanity_check_vectordb.py

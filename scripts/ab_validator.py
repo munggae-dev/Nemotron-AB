@@ -21,6 +21,7 @@ if str(_ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(_ROOT_DIR))
 
 from nemotron_ab.config import get_embed_model_name  # noqa: E402
+from nemotron_ab.torch_device import DEVICE_CHOICES, resolve_torch_device  # noqa: E402
 
 AGE_BUCKETS = ["20s", "30s", "40s", "50s"]
 BUCKET_LABEL_KO = {"20s": "20대", "30s": "30대", "40s": "40대", "50s": "50대"}
@@ -688,7 +689,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="검색용 임베딩 모델. 미지정 시 env EMBED_MODEL_NAME 또는 기본값(BAAI/bge-m3) 사용.",
     )
-    parser.add_argument("--retrieval-device", choices=["auto", "cuda", "cpu"], default="auto")
+    parser.add_argument("--retrieval-device", choices=list(DEVICE_CHOICES), default="auto")
     parser.add_argument("--campaign-file", type=Path, required=True, help="A/B 변형(text/이미지) 입력 JSON 파일")
     parser.add_argument("--output-dir", type=Path, default=Path("outputs"))
     parser.add_argument("--profile", choices=["small", "standard"], default="small")
@@ -702,16 +703,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--retries", type=int, default=1)
     parser.add_argument("--max-reason-chars", type=int, default=80)
     return parser.parse_args()
-
-
-def resolve_device(device_arg: str) -> str:
-    if device_arg == "auto":
-        try:
-            import torch
-            return "cuda" if torch.cuda.is_available() else "cpu"
-        except Exception:  # noqa: BLE001
-            return "cpu"
-    return device_arg
 
 
 def build_retrieval_query(campaign: dict) -> str:
@@ -831,7 +822,7 @@ def main() -> None:
     else:
         retrieval_model = SentenceTransformer(
             get_embed_model_name(args.retrieval_model_name),
-            device=resolve_device(args.retrieval_device),
+            device=resolve_torch_device(args.retrieval_device),
         )
 
     for campaign in campaigns:

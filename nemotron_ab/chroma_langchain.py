@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 from nemotron_ab.campaign_assets import payload_has_any_image
 from nemotron_ab.config import get_embed_model_name
+from nemotron_ab.torch_device import resolve_chroma_lc_device
 from nemotron_ab.persona_filter_schema import retrieval_fanout_multiplier
 from nemotron_ab.persona_where import chroma_where_and, district_prefix_keyword
 
@@ -26,7 +27,7 @@ def get_chroma_vectorstore(
     from langchain_community.embeddings import HuggingFaceEmbeddings
 
     path = db_path or (ROOT / "persona_db")
-    device = "cuda" if os.environ.get("CHROMA_LC_DEVICE", "").lower() == "cuda" else "cpu"
+    device = resolve_chroma_lc_device()
     embeddings = HuggingFaceEmbeddings(
         model_name=get_embed_model_name(model_name),
         model_kwargs={"device": device},
