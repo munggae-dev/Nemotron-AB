@@ -135,7 +135,7 @@ ChatOpenAI.invoke() ──► AIMessage(usage_metadata=…)
 | `nemotron_ab/langchain_eval.py` | `evaluate_persona_langchain` (멀티모달 + usage 반환) |
 | `nemotron_ab/prompt_profile.py` | `resolve_prompt_profile`, `truncate_persona_view`, `VALID_PROFILES` |
 | `nemotron_ab/job_tasks_worker.py` | LLM 호출 + 토큰 저장 + job 단위 집계 |
-| `backend/main.py` | `JobCreate` Pydantic (입력 가드 + `prompt_profile` 검증) |
+| `backend/schemas/jobs.py` | `JobCreate` Pydantic (입력 가드 + `prompt_profile` 검증) |
 | `tests/unit/test_llm_provider.py` | `extract_usage` 4 케이스 + `LLMConfig` 마스킹 |
 | `tests/unit/test_langchain_eval_tokens.py` | Fake ChatOpenAI 로 토큰 흐름 검증 |
 | `tests/unit/test_prompt_profile.py` | 프로파일 해석 + 페르소나 view 절단 |

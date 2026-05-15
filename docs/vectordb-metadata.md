@@ -71,7 +71,7 @@ Chroma 메타만으로 부분 검색이 어려워, API의 `persona_filter.occupa
 
 ## API·폼과의 대응
 
-- 선택지·검증용 열거값: `GET /meta/persona-filters` ([`backend/main.py`](../backend/main.py)), 정의 원본 [`nemotron_ab/persona_filter_schema.py`](../nemotron_ab/persona_filter_schema.py)
+- 선택지·검증용 열거값: `GET /meta/persona-filters` ([`backend/routers/meta.py`](../backend/routers/meta.py)), 정의 원본 [`nemotron_ab/persona_filter_schema.py`](../nemotron_ab/persona_filter_schema.py)
 - 지역 셀렉트: `GET /meta/regions` — [`nemotron_ab/regions.py`](../nemotron_ab/regions.py)
 
 ## 재빌드 절차

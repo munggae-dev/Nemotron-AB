@@ -47,7 +47,7 @@ flowchart TB
 | 경로 | 설명 |
 |------|------|
 | `frontend/` | Next.js UI (`app/` 라우팅·컴포넌트) |
-| `backend/` | FastAPI 앱 및 의존성 목록 (`requirements.txt`) |
+| `backend/` | FastAPI (`main.py` 진입점, `app.py` 팩토리, `routers/`·`schemas/`·`services/`, `requirements.txt`) |
 | `nemotron_ab/` | 공유 비즈니스 로직: DB, 워커, Chroma 검색 래퍼, LangChain 평가 등 |
 | `scripts/` | CLI: 데이터 다운로드, 벡터 DB 빌드, A/B 평가 원스크립트(`ab_validator.py`) 등 |
 | `examples/` | 샘플 A/B 입력·페르소나·프롬프트 스키마 |
