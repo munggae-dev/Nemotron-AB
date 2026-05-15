@@ -52,7 +52,7 @@ def test_payload_does_not_leak_legacy_keys(isolated_sqlite) -> None:
         text_b="b",
         context="c",
         llm_base_url="http://localhost:11434/v1",
-        llm_model="gemma3:4b-it-qat",
+        llm_model="gemma4:e2b-it-q4_K_M",
         persona_filter=_make_filter(),
     )
     payload = _payload_from_create(body)

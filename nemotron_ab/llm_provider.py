@@ -7,7 +7,7 @@ Ollama(`/v1`), OpenAI, Azure OpenAI, OpenRouter, Together, vLLM, llama.cpp, NVID
 설정 우선순위:
 1. 함수 인자(`base_url`, `model`, `api_key`)
 2. 환경변수 `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY`
-3. 기본값(`http://localhost:11434/v1`, "gemma3:4b-it-qat", "EMPTY")
+3. 기본값(`http://localhost:11434/v1`, "gemma4:e2b-it-q4_K_M", "EMPTY")
 
 API 키는 보안상 **환경변수만** 수용합니다. 함수 인자로 받는 경우는
 프로그램 내부 호출(서브프로세스 등) 한정입니다.
@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import Any
 
 DEFAULT_BASE_URL = "http://localhost:11434/v1"
-DEFAULT_MODEL = "gemma3:4b-it-qat"
+DEFAULT_MODEL = "gemma4:e2b-it-q4_K_M"
 DEFAULT_API_KEY = "EMPTY"
 
 ENV_BASE_URL = "LLM_BASE_URL"

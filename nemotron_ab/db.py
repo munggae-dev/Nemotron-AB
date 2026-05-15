@@ -543,6 +543,25 @@ def count_job_tasks(conn: ConnectionLike, job_id: int, status: str | None = None
     return int(cur.fetchone()["c"])
 
 
+def latest_failed_task_error(conn: ConnectionLike, job_id: int) -> str | None:
+    """job 의 가장 최근 실패한 태스크의 error_message 를 반환합니다(없으면 None)."""
+    cur = conn.execute(
+        """
+        SELECT error_message
+        FROM job_tasks
+        WHERE job_id=? AND status='failed' AND error_message IS NOT NULL
+        ORDER BY COALESCE(finished_at, started_at, created_at) DESC, id DESC
+        LIMIT 1
+        """,
+        (job_id,),
+    )
+    row = cur.fetchone()
+    if row is None:
+        return None
+    msg = row["error_message"]
+    return str(msg) if msg is not None else None
+
+
 def job_task_status_counts(conn: ConnectionLike, job_id: int) -> dict[str, int]:
     """job_id 기준 페르소나 LLM 태스크 상태별 건수(진행률·ETA용)."""
     cur = conn.execute(

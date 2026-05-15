@@ -27,7 +27,11 @@ from nemotron_ab.campaign_assets import (
     save_upload_to_staging,
     validate_asset_ref_exists,
 )
-from nemotron_ab.job_tasks_worker import finalize_llm_enqueue_sync, reaggregate_completed_job
+from nemotron_ab.job_tasks_worker import (
+    finalize_llm_enqueue_sync,
+    reaggregate_completed_job,
+    try_finalize_job,
+)
 from nemotron_ab.persona_filter_schema import (
     FIELD_LABEL_KO,
     FILTER_ENUM_LOOKUP,
@@ -627,6 +631,22 @@ def get_job(job_id: int) -> dict[str, Any]:
         if row is None:
             raise HTTPException(404, "job not found")
         d = dict(row)
+        # 좀비 자가복구: 태스크는 모두 끝났는데 작업 상태가 진행 중인 경우 finalize 재시도.
+        # (워커가 마지막 태스크 실패 시 finalize 누락된 과거 작업 호환)
+        if str(d.get("status") or "") in ("pending", "running"):
+            breakdown_for_check = db.job_task_status_counts(conn, job_id)
+            if (
+                breakdown_for_check.get("total", 0) > 0
+                and breakdown_for_check.get("pending", 0) == 0
+                and breakdown_for_check.get("running", 0) == 0
+            ):
+                try:
+                    try_finalize_job(conn, job_id)
+                except Exception as e:  # noqa: BLE001
+                    print(f"[get_job] finalize retry failed for job {job_id}: {e}", flush=True)
+                row = db.fetch_job_with_result(conn, job_id)
+                if row is not None:
+                    d = dict(row)
         d["report_summary"] = _parse_summary_json(d.pop("summary_json", None))
         d.pop("report_json_path", None)
         d.pop("result_partial_jsonl_path", None)

@@ -112,6 +112,7 @@ def _run_llm_score(task_row, conn) -> None:
     job = db.fetch_job(conn, job_id)
     if job is None:
         db.fail_task(conn, task_id, "job not found")
+        _maybe_finalize_job(conn, job_id)
         return
     payload = json.loads(job["payload_json"])
     db.start_job_running(conn, job_id)
@@ -119,6 +120,7 @@ def _run_llm_score(task_row, conn) -> None:
     persona = mv.normalize_persona_row(persona_row, fallback_id=f"task-{task_id}")
     if persona is None:
         db.fail_task(conn, task_id, "persona normalize failed")
+        _maybe_finalize_job(conn, job_id)
         return
 
     evaluator = str(payload.get("evaluator", "mock"))
@@ -225,6 +227,7 @@ def _run_llm_score(task_row, conn) -> None:
             task_id,
             f"attempts={max_attempts} last_err={last_err}",
         )
+        _maybe_finalize_job(conn, job_id)
         return
 
     out = {
@@ -405,17 +408,21 @@ def _maybe_finalize_job(conn, job_id: int) -> None:
     rows_for_agg = _rows_from_partial_file(partial)
 
     if not rows_for_agg:
-        db.fail_job(
-            conn,
-            job_id,
-            f"집계할 결과가 없습니다(failed_tasks={failed}).",
+        last_err = db.latest_failed_task_error(conn, job_id)
+        base_msg = f"집계할 결과가 없습니다(failed_tasks={failed})."
+        job_msg = f"{base_msg} 마지막 오류: {last_err}" if last_err else base_msg
+        notif_msg = (
+            f"집계할 유효한 페르소나 결과가 없습니다. 마지막 오류: {last_err}"
+            if last_err
+            else "집계할 유효한 페르소나 결과가 없습니다."
         )
+        db.fail_job(conn, job_id, job_msg)
         db.add_notification(
             conn,
             job_id,
             "error",
             f"작업 #{job_id} 실패",
-            "집계할 유효한 페르소나 결과가 없습니다.",
+            notif_msg,
         )
         return
 
@@ -427,6 +434,11 @@ def _maybe_finalize_job(conn, job_id: int) -> None:
         f"작업 #{job_id} 완료",
         f"최종 추천: {summary['final_winner']}",
     )
+
+
+def try_finalize_job(conn, job_id: int) -> None:
+    """외부에서 호출 가능한 finalize 트리거. 진행 중인 태스크가 남아 있으면 no-op."""
+    _maybe_finalize_job(conn, job_id)
 
 
 def process_one_task(conn) -> int | None:
