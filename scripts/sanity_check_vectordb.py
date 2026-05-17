@@ -105,10 +105,16 @@ def main() -> int:
     print("\n=== 3) 임베딩 차원 ===")
     e = col.get(limit=1, include=["embeddings"])
     embs = e.get("embeddings")
-    if not embs:
+    dim = None
+    if embs is not None:
+        if hasattr(embs, "size") and embs.size > 0:
+            row = embs[0] if getattr(embs, "ndim", 1) > 1 else embs
+            dim = len(row)
+        elif hasattr(embs, "__len__") and len(embs) > 0:
+            dim = len(embs[0])
+    if dim is None:
         print("[WARN] 임베딩을 가져오지 못했습니다.")
     else:
-        dim = len(embs[0])
         print(f"  dim = {dim}")
 
     print(f"\n=== 4) where 필터 sanity "
