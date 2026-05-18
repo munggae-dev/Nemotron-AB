@@ -30,6 +30,8 @@ from urllib.parse import urlparse
 
 from sqlalchemy import Engine, create_engine, event
 
+from nemotron_ab.paths import resolve_sqlite_file_path
+
 ENV_DATABASE_URL = "DATABASE_URL"
 
 
@@ -39,11 +41,9 @@ ENV_DATABASE_URL = "DATABASE_URL"
 
 
 def _default_sqlite_path_from_app() -> Path:
-    """db.py 의 default_sqlite_path 와 동일한 규칙 — 순환 import 회피용 자체 구현."""
+    """db.py 의 default_sqlite_path 와 동일한 규칙."""
     raw = os.environ.get("APP_SQLITE_PATH", "").strip()
-    if raw:
-        return Path(raw)
-    return Path(__file__).resolve().parents[1] / "nemotron_ab" / "app.sqlite3"
+    return resolve_sqlite_file_path(raw or None)
 
 
 def resolve_database_url(url: str | None = None) -> str:
@@ -74,11 +74,13 @@ def is_postgres(url: str) -> bool:
 
 
 def sqlite_path_from_url(url: str) -> Path:
-    """`sqlite:///abs/path.db` → Path 변환."""
+    """`sqlite:///path.db` → 저장소 루트 기준 절대 Path."""
     if not is_sqlite(url):
         raise ValueError(f"sqlite URL 이 아닙니다: {url!r}")
     raw = url[len("sqlite:///") :] if url.startswith("sqlite:///") else url[len("sqlite://") :]
-    return Path(raw)
+    if raw == ":memory:":
+        return Path(raw)
+    return resolve_sqlite_file_path(raw)
 
 
 def make_engine(url: str | None = None, *, echo: bool = False) -> Engine:

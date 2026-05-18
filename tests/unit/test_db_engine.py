@@ -117,6 +117,39 @@ def test_get_conn_accepts_sqlite_url_string(tmp_path: Path) -> None:
     assert target.exists()
 
 
+def test_relative_app_sqlite_path_ignores_cwd(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """backend/ cwd 에서 실행해도 APP_SQLITE_PATH 상대값은 repo 루트 기준이어야 한다."""
+    from nemotron_ab import db
+    from nemotron_ab.paths import repo_root
+
+    backend_cwd = tmp_path / "backend"
+    backend_cwd.mkdir()
+    monkeypatch.chdir(backend_cwd)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("APP_SQLITE_PATH", "./nemotron_ab/app.sqlite3")
+
+    expected = (repo_root() / "nemotron_ab" / "app.sqlite3").resolve()
+    assert db.default_sqlite_path() == expected
+
+
+def test_relative_database_url_sqlite_ignores_cwd(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from nemotron_ab import db
+    from nemotron_ab.paths import repo_root
+
+    backend_cwd = tmp_path / "backend"
+    backend_cwd.mkdir()
+    monkeypatch.chdir(backend_cwd)
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///./nemotron_ab/app.sqlite3")
+    monkeypatch.delenv("APP_SQLITE_PATH", raising=False)
+
+    expected = (repo_root() / "nemotron_ab" / "app.sqlite3").resolve()
+    assert db.default_sqlite_path() == expected
+
+
 def test_default_sqlite_path_prefers_database_url(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
