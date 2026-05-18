@@ -13,6 +13,7 @@ from nemotron_ab.db_engine import (
     resolve_database_url,
     sqlite_path_from_url,
 )
+from nemotron_ab.paths import resolve_sqlite_file_path
 
 # 호출부 타입 힌트 호환을 위해 별칭으로 노출. 실제로는 sqlite3.Connection 또는 DBConnection.
 ConnectionLike = Union[sqlite3.Connection, DBConnection]
@@ -46,14 +47,14 @@ def _fetch_inserted_id(cur: Any) -> int:
 def default_sqlite_path() -> Path:
     """환경변수 APP_SQLITE_PATH 또는 저장소 기본 app/app.sqlite3.
 
-    참고: 우선순위가 더 높은 `DATABASE_URL` 이 있고 그것이 sqlite URL 이면, 그쪽 경로를 반환한다.
+    상대 경로는 실행 cwd 가 아니라 저장소 루트 기준으로 해석한다.
+    참고: 우선순위가 더 높은 `DATABASE_URL` 이 sqlite 이면 그 URL 경로를 반환한다.
     """
     env_url = os.environ.get(ENV_DATABASE_URL, "").strip()
     if env_url and is_sqlite(env_url):
         return sqlite_path_from_url(env_url)
     raw = os.environ.get("APP_SQLITE_PATH", "").strip()
-    repo_root = Path(__file__).resolve().parents[1]
-    return Path(raw) if raw else repo_root / "nemotron_ab" / "app.sqlite3"
+    return resolve_sqlite_file_path(raw or None)
 
 
 def get_conn(db_path: Path | str | None = None) -> ConnectionLike:
@@ -76,7 +77,7 @@ def get_conn(db_path: Path | str | None = None) -> ConnectionLike:
         if is_sqlite(db_path):
             return make_sqlite_connection(db_path)
         return make_db_connection(db_path)
-    path = Path(db_path)
+    path = resolve_sqlite_file_path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(path), check_same_thread=False)
     conn.row_factory = sqlite3.Row
