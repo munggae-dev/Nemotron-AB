@@ -11,6 +11,7 @@ import {
   setLastNotifiedId,
   showBrowserNotification,
 } from "@/lib/browser-notifications";
+import { requestNotificationsUnreadRefresh } from "@/lib/notification-unread";
 
 const POLL_MS = 12_000;
 const FETCH_LIMIT = 30;
@@ -41,6 +42,7 @@ export function BrowserNotificationListener() {
         if (lastId > getLastNotifiedId()) {
           setLastNotifiedId(lastId);
         }
+        requestNotificationsUnreadRefresh();
       } catch {
         /* 네트워크·API 오류 시 다음 주기에 재시도 */
       } finally {

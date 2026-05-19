@@ -389,9 +389,35 @@ def mark_notification_read(conn: ConnectionLike, notification_id: int) -> None:
     conn.commit()
 
 
+def mark_all_notifications_read(conn: ConnectionLike) -> int:
+    """읽지 않은 알림을 모두 읽음 처리합니다. 갱신된 행 수를 반환합니다."""
+    cur = conn.execute("UPDATE notifications SET is_read=1 WHERE is_read=0")
+    conn.commit()
+    return int(cur.rowcount or 0)
+
+
 def fetch_job_result(conn: ConnectionLike, job_id: int) -> Any | None:
     cur = conn.execute("SELECT * FROM job_results WHERE job_id=?", (job_id,))
     return cur.fetchone()
+
+
+def patch_job_result_summary(conn: ConnectionLike, job_id: int, patch: dict[str, Any]) -> None:
+    """job_results.summary_json 에 키를 병합합니다(종합 분석 메타 등)."""
+    res = fetch_job_result(conn, job_id)
+    if res is None:
+        raise ValueError("job_results 행이 없습니다")
+    try:
+        summary = json.loads(res["summary_json"])
+        if not isinstance(summary, dict):
+            summary = {}
+    except (TypeError, ValueError, json.JSONDecodeError):
+        summary = {}
+    summary.update(patch)
+    conn.execute(
+        "UPDATE job_results SET summary_json=? WHERE job_id=?",
+        (json.dumps(summary, ensure_ascii=False), job_id),
+    )
+    conn.commit()
 
 
 def fetch_job_basic(conn: ConnectionLike, job_id: int) -> Any | None:
@@ -529,16 +555,21 @@ def complete_task(
 
 
 def job_token_totals(conn: ConnectionLike, job_id: int) -> dict[str, int]:
-    """job 단위 토큰 사용량 합계.
+    """job 단위 페르소나 평가 LLM 토큰·호출 집계.
 
-    완료된 태스크뿐 아니라 모든 task 행을 합산해 부분 실행 비용도 반영합니다.
+    토큰은 ``status='completed'`` 태스크만 합산합니다. ``llm_call_count`` 는 완료된
+    평가 호출 수, ``task_count`` 는 동일 값(하위 호환)입니다.
     """
     cur = conn.execute(
         """
         SELECT
-            COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
-            COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
-            COALESCE(SUM(total_tokens), 0) AS total_tokens,
+            COALESCE(SUM(CASE WHEN status='completed' THEN prompt_tokens ELSE 0 END), 0)
+                AS prompt_tokens,
+            COALESCE(SUM(CASE WHEN status='completed' THEN completion_tokens ELSE 0 END), 0)
+                AS completion_tokens,
+            COALESCE(SUM(CASE WHEN status='completed' THEN total_tokens ELSE 0 END), 0)
+                AS total_tokens,
+            COALESCE(SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END), 0) AS llm_call_count,
             COUNT(*) AS task_count
         FROM job_tasks
         WHERE job_id=?
@@ -547,12 +578,20 @@ def job_token_totals(conn: ConnectionLike, job_id: int) -> dict[str, int]:
     )
     row = cur.fetchone()
     if row is None:
-        return {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "task_count": 0}
+        return {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "llm_call_count": 0,
+            "task_count": 0,
+        }
+    llm_call_count = int(row["llm_call_count"])
     return {
         "prompt_tokens": int(row["prompt_tokens"]),
         "completion_tokens": int(row["completion_tokens"]),
         "total_tokens": int(row["total_tokens"]),
-        "task_count": int(row["task_count"]),
+        "llm_call_count": llm_call_count,
+        "task_count": llm_call_count,
     }
 
 

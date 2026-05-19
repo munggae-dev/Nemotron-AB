@@ -1,8 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KoreaRegions, MetaPersonaFilters, PersonaPopulationEstimate } from "@/lib/api";
-import { apiGet, apiPost, apiUploadJobAsset, type JobRow } from "@/lib/api";
+import {
+  apiGet,
+  apiImportJobAssetFromJob,
+  apiPost,
+  apiUploadJobAsset,
+  type JobRow,
+} from "@/lib/api";
+import { getApiBaseUrl } from "@/lib/api-base";
 
 const DRAFT_STORAGE_KEY = "nemotron-new-job-draft-v9";
 
@@ -25,6 +32,131 @@ function imagePayloadFromVariant(v: VariantFields): { type: string; value: strin
   return undefined;
 }
 
+type VariantSide = "a" | "b";
+
+function isBlobUrl(url: string): boolean {
+  return url.startsWith("blob:");
+}
+
+function isPreviewableHttpUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url.trim());
+}
+
+function resolveVariantPreviewSrc(
+  side: VariantSide,
+  variant: VariantFields,
+  blobPreview: string | null,
+  jobPreviewUrl: string | null,
+): string | null {
+  if (blobPreview) return blobPreview;
+  if (jobPreviewUrl) return jobPreviewUrl;
+  const url = variant.image_url.trim();
+  if (url && isPreviewableHttpUrl(url)) return url;
+  return null;
+}
+
+function payloadImageRef(ref: Record<string, unknown> | null): { type: string; value: string } | null {
+  if (!ref) return null;
+  const type = String(ref.type ?? "").trim();
+  const value = String(ref.value ?? "").trim();
+  if (!type || !value) return null;
+  return { type, value };
+}
+
+function variantFieldsFromPayloadImage(ref: Record<string, unknown> | null): Partial<VariantFields> {
+  const parsed = payloadImageRef(ref);
+  if (!parsed) return {};
+  if (parsed.type === "url") return { image_url: parsed.value, image_asset_ref: null };
+  if (parsed.type === "asset_ref") return { image_asset_ref: parsed.value, image_url: "" };
+  if (parsed.type === "path") return { image_asset_ref: null, image_url: "" };
+  return {};
+}
+
+function jobVariantImageUrl(jobId: number, variant: VariantSide): string {
+  return `${getApiBaseUrl()}/jobs/${jobId}/images/${variant}`;
+}
+
+/** 나이 필터와 겹치는 연령 버킷 수 (20·30·40·50대). */
+function activeAgeBucketCount(ageMin: number, ageMax: number): number {
+  const buckets: [number, number][] = [
+    [19, 29],
+    [30, 39],
+    [40, 49],
+    [50, 59],
+  ];
+  let n = 0;
+  for (const [lo, hi] of buckets) {
+    if (Math.max(lo, ageMin) <= Math.min(hi, ageMax)) n += 1;
+  }
+  return n;
+}
+
+/** 버킷별 rk × 활성 버킷 수, 최종 인원은 최대 페르소나로 캡 (서버 라운드로빈과 동일 개념). */
+function effectiveRetrievalCandidateCount(
+  maxPersonas: number,
+  retrievalKPerBucket: number,
+  ageMin: number,
+  ageMax: number,
+): number {
+  const rk = Math.max(20, Math.min(500, Number(retrievalKPerBucket) || 80));
+  const mp = Math.max(8, Number(maxPersonas) || 24);
+  const buckets = activeAgeBucketCount(ageMin, ageMax);
+  return Math.min(mp, Math.max(1, buckets) * rk);
+}
+
+function isRetrievalBelowMaxPersonas(
+  maxPersonas: number,
+  retrievalKPerBucket: number,
+  ageMin: number,
+  ageMax: number,
+): boolean {
+  const mp = Math.max(8, Number(maxPersonas) || 24);
+  if (!Number.isFinite(Number(retrievalKPerBucket)) || !Number.isFinite(mp)) return false;
+  return (
+    effectiveRetrievalCandidateCount(maxPersonas, retrievalKPerBucket, ageMin, ageMax) < mp
+  );
+}
+
+function VariantImagePreview({
+  src,
+  alt,
+  busy,
+  attached,
+}: {
+  src: string | null;
+  alt: string;
+  busy?: boolean;
+  attached?: boolean;
+}) {
+  const [broken, setBroken] = useState(false);
+  useEffect(() => {
+    setBroken(false);
+  }, [src]);
+  if (!src && !busy) return null;
+  return (
+    <figure className="variant-image-preview-wrap" aria-label={alt}>
+      {busy ? <p className="muted small variant-image-preview-status">업로드 중…</p> : null}
+      {src && !broken ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          className="job-variant-thumb variant-image-preview"
+          src={src}
+          alt={alt}
+          onError={() => setBroken(true)}
+        />
+      ) : null}
+      {src && broken ? <p className="muted small variant-image-preview-status">미리보기를 불러오지 못했습니다.</p> : null}
+      {attached ? (
+        <figcaption className="variant-image-preview-caption muted small">
+          <span className="material-symbols-outlined" style={{ fontSize: "1rem", verticalAlign: "middle" }}>
+            cloud_upload
+          </span>{" "}
+          이미지 파일이 첨부되었습니다.
+        </figcaption>
+      ) : null}
+    </figure>
+  );
+}
 
 const defaultVariant = (): VariantFields => ({
   text: "",
@@ -88,6 +220,36 @@ export default function NewJobPage() {
   const [ok, setOk] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploadBusy, setUploadBusy] = useState<"a" | "b" | null>(null);
+  const [imagePreviews, setImagePreviews] = useState<{ a: string | null; b: string | null }>({ a: null, b: null });
+  const [jobImagePreviews, setJobImagePreviews] = useState<{ a: string | null; b: string | null }>({ a: null, b: null });
+  const imagePreviewsRef = useRef(imagePreviews);
+  imagePreviewsRef.current = imagePreviews;
+
+  const clearImagePreview = useCallback((side: VariantSide) => {
+    setImagePreviews((prev) => {
+      const cur = prev[side];
+      if (cur && isBlobUrl(cur)) URL.revokeObjectURL(cur);
+      return { ...prev, [side]: null };
+    });
+  }, []);
+
+  const setImagePreviewBlob = useCallback((side: VariantSide, file: File) => {
+    const url = URL.createObjectURL(file);
+    setImagePreviews((prev) => {
+      const cur = prev[side];
+      if (cur && isBlobUrl(cur)) URL.revokeObjectURL(cur);
+      return { ...prev, [side]: url };
+    });
+    return url;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      const { a, b } = imagePreviewsRef.current;
+      if (a && isBlobUrl(a)) URL.revokeObjectURL(a);
+      if (b && isBlobUrl(b)) URL.revokeObjectURL(b);
+    };
+  }, []);
   const [populationEstimate, setPopulationEstimate] = useState<number | null>(null);
   const [populationLoading, setPopulationLoading] = useState(false);
   const [populationErr, setPopulationErr] = useState<string | null>(null);
@@ -190,6 +352,14 @@ export default function NewJobPage() {
         const personaFilter = pfRaw && typeof pfRaw === "object" ? (pfRaw as Record<string, unknown>) : {};
         const imageA = payload.image_a && typeof payload.image_a === "object" ? (payload.image_a as Record<string, unknown>) : null;
         const imageB = payload.image_b && typeof payload.image_b === "object" ? (payload.image_b as Record<string, unknown>) : null;
+        const parsedA = payloadImageRef(imageA);
+        const parsedB = payloadImageRef(imageB);
+        if (!cancelled) {
+          setJobImagePreviews({
+            a: parsedA && parsedA.type !== "url" ? jobVariantImageUrl(id, "a") : null,
+            b: parsedB && parsedB.type !== "url" ? jobVariantImageUrl(id, "b") : null,
+          });
+        }
         const legacyContextParts = [
           String(payload.product ?? ""),
           String(payload.category ?? ""),
@@ -206,18 +376,12 @@ export default function NewJobPage() {
           variant_a: {
             ...defaultVariant(),
             text: String(payload.text_a ?? payload.copy_a ?? ""),
-            image_url:
-              imageA && String(imageA.type ?? "") === "url" ? String(imageA.value ?? "") : "",
-            image_asset_ref:
-              imageA && String(imageA.type ?? "") === "asset_ref" ? String(imageA.value ?? "") : null,
+            ...variantFieldsFromPayloadImage(imageA),
           },
           variant_b: {
             ...defaultVariant(),
             text: String(payload.text_b ?? payload.copy_b ?? ""),
-            image_url:
-              imageB && String(imageB.type ?? "") === "url" ? String(imageB.value ?? "") : "",
-            image_asset_ref:
-              imageB && String(imageB.type ?? "") === "asset_ref" ? String(imageB.value ?? "") : null,
+            ...variantFieldsFromPayloadImage(imageB),
           },
           context: inheritedContext,
           profile: String(payload.profile ?? defaultForm.profile),
@@ -264,6 +428,33 @@ export default function NewJobPage() {
           },
         });
         setOk(`작업 #${id} 설정을 불러왔습니다. 수정 후 다시 실행하세요.`);
+
+        const importSide = async (side: VariantSide, parsed: { type: string; value: string } | null) => {
+          if (!parsed || parsed.type === "url") return;
+          setUploadBusy(side);
+          try {
+            const { asset_ref } = await apiImportJobAssetFromJob(id, side);
+            if (cancelled) return;
+            const which = side === "a" ? "variant_a" : "variant_b";
+            setForm((prev) => ({
+              ...prev,
+              [which]: { ...prev[which], image_asset_ref: asset_ref, image_url: "" },
+            }));
+          } catch (ex: unknown) {
+            if (!cancelled) {
+              setErr(
+                ex instanceof Error
+                  ? `안 ${side.toUpperCase()} 이미지 재업로드 실패: ${ex.message}`
+                  : String(ex),
+              );
+            }
+          } finally {
+            if (!cancelled) setUploadBusy(null);
+          }
+        };
+
+        if (parsedA && parsedA.type !== "url") await importSide("a", parsedA);
+        if (!cancelled && parsedB && parsedB.type !== "url") await importSide("b", parsedB);
       } catch (e: unknown) {
         if (!cancelled) setErr(e instanceof Error ? e.message : String(e));
       } finally {
@@ -308,6 +499,24 @@ export default function NewJobPage() {
       setErr("나이 범위가 올바르지 않습니다.");
       return;
     }
+    const ageMin = form.persona_filter.age_min;
+    const ageMax = form.persona_filter.age_max;
+    if (isRetrievalBelowMaxPersonas(form.max_personas, form.retrieval_k_per_bucket, ageMin, ageMax)) {
+      const fetchN = effectiveRetrievalCandidateCount(
+        form.max_personas,
+        form.retrieval_k_per_bucket,
+        ageMin,
+        ageMax,
+      );
+      const proceed = window.confirm(
+        `연령 버킷별 검색 풀(버킷당 ${form.retrieval_k_per_bucket}명 × 활성 버킷)이 ` +
+          `최대 페르소나(${form.max_personas})보다 작을 수 있습니다.\n\n` +
+          `라운드로빈으로 채울 수 있는 후보는 약 ${fetchN}명 수준입니다. ` +
+          `DB·필터 조건에 따라 목표 인원을 못 채울 수 있습니다.\n\n` +
+          `보통은 (버킷당 검색 수 × 활성 연령 버킷) ≥ 최대 페르소나를 권장합니다. 그래도 접수할까요?`,
+      );
+      if (!proceed) return;
+    }
     setLoading(true);
     try {
       const { variant_a: _va, variant_b: _vb, ...jobPayload } = form;
@@ -340,6 +549,44 @@ export default function NewJobPage() {
       [which]: { ...prev[which], ...patch },
     }));
   };
+
+  const onVariantImageUrlChange = (which: "variant_a" | "variant_b", side: VariantSide, value: string) => {
+    clearImagePreview(side);
+    setJobImagePreviews((prev) => ({ ...prev, [side]: null }));
+    updateVariant(which, { image_url: value, image_asset_ref: null });
+  };
+
+  const onVariantImageFile = async (which: "variant_a" | "variant_b", side: VariantSide, f: File) => {
+    setJobImagePreviews((prev) => ({ ...prev, [side]: null }));
+    setImagePreviewBlob(side, f);
+    setUploadBusy(side);
+    setErr(null);
+    try {
+      const { asset_ref } = await apiUploadJobAsset(f);
+      updateVariant(which, { image_asset_ref: asset_ref, image_url: "" });
+    } catch (ex: unknown) {
+      clearImagePreview(side);
+      setErr(ex instanceof Error ? ex.message : String(ex));
+    } finally {
+      setUploadBusy(null);
+    }
+  };
+
+  const previewA = resolveVariantPreviewSrc("a", form.variant_a, imagePreviews.a, jobImagePreviews.a);
+  const previewB = resolveVariantPreviewSrc("b", form.variant_b, imagePreviews.b, jobImagePreviews.b);
+
+  const retrievalBelowMax = isRetrievalBelowMaxPersonas(
+    form.max_personas,
+    form.retrieval_k_per_bucket,
+    form.persona_filter.age_min,
+    form.persona_filter.age_max,
+  );
+  const retrievalFetchEstimate = effectiveRetrievalCandidateCount(
+    form.max_personas,
+    form.retrieval_k_per_bucket,
+    form.persona_filter.age_min,
+    form.persona_filter.age_max,
+  );
 
   return (
     <form id="new-job" onSubmit={onSubmit}>
@@ -386,9 +633,7 @@ export default function NewJobPage() {
                   type="url"
                   inputMode="url"
                   value={form.variant_a.image_url}
-                  onChange={(e) =>
-                    updateVariant("variant_a", { image_url: e.target.value, image_asset_ref: null })
-                  }
+                  onChange={(e) => onVariantImageUrlChange("variant_a", "a", e.target.value)}
                   placeholder="https://..."
                   autoComplete="off"
                 />
@@ -406,27 +651,15 @@ export default function NewJobPage() {
                     const f = e.target.files?.[0];
                     e.target.value = "";
                     if (!f) return;
-                    setUploadBusy("a");
-                    setErr(null);
-                    try {
-                      const { asset_ref } = await apiUploadJobAsset(f);
-                      updateVariant("variant_a", { image_asset_ref: asset_ref, image_url: "" });
-                    } catch (ex: unknown) {
-                      setErr(ex instanceof Error ? ex.message : String(ex));
-                    } finally {
-                      setUploadBusy(null);
-                    }
+                    await onVariantImageFile("variant_a", "a", f);
                   }}
                 />
-                {uploadBusy === "a" ? <p className="muted small">업로드 중…</p> : null}
-                {form.variant_a.image_asset_ref ? (
-                  <p className="muted small">
-                    <span className="material-symbols-outlined" style={{ fontSize: "1rem", verticalAlign: "middle" }}>
-                      cloud_upload
-                    </span>{" "}
-                    이미지 파일이 첨부되었습니다.
-                  </p>
-                ) : null}
+                <VariantImagePreview
+                  src={previewA}
+                  alt="Variant A 이미지 미리보기"
+                  busy={uploadBusy === "a"}
+                  attached={Boolean(form.variant_a.image_asset_ref || jobImagePreviews.a)}
+                />
               </div>
             </div>
           </div>
@@ -465,9 +698,7 @@ export default function NewJobPage() {
                   type="url"
                   inputMode="url"
                   value={form.variant_b.image_url}
-                  onChange={(e) =>
-                    updateVariant("variant_b", { image_url: e.target.value, image_asset_ref: null })
-                  }
+                  onChange={(e) => onVariantImageUrlChange("variant_b", "b", e.target.value)}
                   placeholder="https://..."
                   autoComplete="off"
                 />
@@ -485,27 +716,15 @@ export default function NewJobPage() {
                     const f = e.target.files?.[0];
                     e.target.value = "";
                     if (!f) return;
-                    setUploadBusy("b");
-                    setErr(null);
-                    try {
-                      const { asset_ref } = await apiUploadJobAsset(f);
-                      updateVariant("variant_b", { image_asset_ref: asset_ref, image_url: "" });
-                    } catch (ex: unknown) {
-                      setErr(ex instanceof Error ? ex.message : String(ex));
-                    } finally {
-                      setUploadBusy(null);
-                    }
+                    await onVariantImageFile("variant_b", "b", f);
                   }}
                 />
-                {uploadBusy === "b" ? <p className="muted small">업로드 중…</p> : null}
-                {form.variant_b.image_asset_ref ? (
-                  <p className="muted small">
-                    <span className="material-symbols-outlined" style={{ fontSize: "1rem", verticalAlign: "middle" }}>
-                      cloud_upload
-                    </span>{" "}
-                    이미지 파일이 첨부되었습니다.
-                  </p>
-                ) : null}
+                <VariantImagePreview
+                  src={previewB}
+                  alt="Variant B 이미지 미리보기"
+                  busy={uploadBusy === "b"}
+                  attached={Boolean(form.variant_b.image_asset_ref || jobImagePreviews.b)}
+                />
               </div>
             </div>
           </div>
@@ -808,16 +1027,17 @@ export default function NewJobPage() {
                 help
               </span>
             </button>
-            <div className="field-help-tooltip" role="tooltip">
+            <div className="field-help-tooltip field-help-tooltip--field" role="tooltip">
               <p>
-                <strong>버킷</strong>은 연령대 구간(20대·30대·40대·50대)입니다. 작업의 맥락·안 A·안 B
-                텍스트와 <strong>의미가 비슷한</strong> 페르소나를 벡터 DB에서 찾을 때, 연령대마다 최대 이
-                숫자만큼 후보를 가져옵니다.
+                <strong>버킷</strong>은 연령대 구간(20·30·40·50대)입니다. 작업 큐는 맥락·안 A·B로{" "}
+                <strong>활성 연령 버킷마다 의미 검색 1회</strong>씩 하고, 버킷당 최대{" "}
+                <strong>버킷당 검색 수</strong>명을 가져온 뒤 <strong>라운드로빈</strong>으로 최대
+                페르소나 수만큼 고릅니다.
               </p>
               <p>
-                후보를 모은 뒤 <strong>최대 페르소나</strong> 수만큼만 골라 LLM 평가에 씁니다. 값을 크게 하면
-                다양한 후보를 확보하기 쉽지만 검색·평가가 느려지고, 작게 하면 빠르지만 연령대별 후보가 부족할
-                수 있습니다.
+                필터 없이 전 연령이면 4버킷 × rk 후보에서 균등하게 뽑아 20대 치우침을 줄입니다.{" "}
+                <strong>(버킷당 검색 수 × 활성 버킷)이 최대 페르소나보다 작으면</strong> 후보 풀이 부족할 수
+                있습니다.
               </p>
               <p className="field-help-tooltip-note">
                 기본 80 · 허용 20~500. API 필드명: <code className="mono">retrieval_k_per_bucket</code>
@@ -833,6 +1053,14 @@ export default function NewJobPage() {
           value={form.retrieval_k_per_bucket}
           onChange={(e) => setForm({ ...form, retrieval_k_per_bucket: Number(e.target.value) })}
         />
+        {retrievalBelowMax ? (
+          <div className="msg warn" role="status">
+            <strong>주의:</strong> 버킷별 검색 풀(버킷당 {form.retrieval_k_per_bucket} × 활성 연령 버킷)이
+            최대 페르소나({form.max_personas})를 채우기에 부족할 수 있습니다. 라운드로빈 후보는 약{" "}
+            <strong>{retrievalFetchEstimate}명</strong> 수준입니다. (버킷당 검색 수 × 활성 버킷) ≥ 최대
+            페르소나를 권장합니다.
+          </div>
+        ) : null}
         <div className="check-row">
           <input
             type="checkbox"

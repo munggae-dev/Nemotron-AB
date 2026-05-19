@@ -21,6 +21,7 @@ if str(_ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(_ROOT_DIR))
 
 from nemotron_ab.config import get_embed_model_name  # noqa: E402
+from nemotron_ab.key_reasons import build_key_reasons  # noqa: E402
 from nemotron_ab.torch_device import DEVICE_CHOICES, resolve_torch_device  # noqa: E402
 
 AGE_BUCKETS = ["20s", "30s", "40s", "50s"]
@@ -347,112 +348,6 @@ def confidence_from_margin(score_a: float, score_b: float) -> float:
     return min(1.0, margin / 100.0)
 
 
-def _quote_strength(row: dict) -> tuple[float, float]:
-    conf = float(row.get("confidence") or 0.0)
-    ws = row.get("weighted_score") or {}
-    try:
-        a = float(ws.get("A", 0.0))
-        b = float(ws.get("B", 0.0))
-    except (TypeError, ValueError):
-        a, b = 0.0, 0.0
-    margin = abs(a - b)
-    return (conf, margin)
-
-
-def _winner_aligned_quotes(all_rows: list[dict], final_winner: str, *, max_quotes: int) -> list[str]:
-    arm = str(final_winner)
-    cand = [r for r in all_rows if str(r.get("winner")) == arm]
-    cand.sort(key=_quote_strength, reverse=True)
-    out: list[str] = []
-    seen = set()
-    for r in cand:
-        reason = str(r.get("reason", "")).strip()
-        if not reason or reason in seen:
-            continue
-        seen.add(reason)
-        out.append(f"【Variant {arm} 우세 표본 근거】 {reason}")
-        if len(out) >= max_quotes:
-            break
-    return out
-
-
-def _minority_counterpoint_line(all_rows: list[dict], loser: str, loser_share: float) -> str | None:
-    if loser_share < 0.05 or loser_share > 0.40:
-        return None
-    cand = [r for r in all_rows if str(r.get("winner")) == str(loser)]
-    if not cand:
-        return None
-    cand.sort(key=_quote_strength, reverse=True)
-    for r in cand:
-        reason = str(r.get("reason", "")).strip()
-        if reason:
-            return (
-                f"【소수 의견·Variant {loser} 우세 표본 비율 {loser_share:.1%}】 "
-                f"전체 결론과 다를 수 있으니 세그먼트별로 확인하세요. {reason}"
-            )
-    return None
-
-
-def build_key_reasons(
-    *,
-    all_rows: list[dict],
-    overall: dict,
-    summary_by_bucket: dict[str, dict],
-    final_winner: str,
-    max_items: int = 10,
-) -> list[str]:
-    """집계 수치를 먼저 밝히고, 최종 추천 Variant와 winner가 일치하는 표본의 근거만 인용한다."""
-    n = int(overall.get("count") or 0)
-    if n <= 0:
-        return ["평가 결과 행이 없어 핵심 인사이트를 생성하지 못했습니다."]
-
-    wr_a = float(overall["win_rate"]["A"])
-    wr_b = float(overall["win_rate"]["B"])
-    sa = float(overall["avg_score"]["A"])
-    sb = float(overall["avg_score"]["B"])
-    avg_conf = float(overall.get("avg_confidence") or 0.0)
-
-    lines: list[str] = [
-        (
-            f"전체 표본 {n}건 기준 우세 비율 A {wr_a:.1%} / B {wr_b:.1%}, "
-            f"평균 가중 점수 A {sa:.2f} · B {sb:.2f}, "
-            f"표본 평균 신뢰도 지표(점수 차 기반) {avg_conf:.1%}. "
-            f"집계 규칙(가중 점수 우선·동점 시 승률)에 따라 최종 추천은 Variant {final_winner}입니다."
-        )
-    ]
-
-    bucket_bits: list[str] = []
-    for b in AGE_BUCKETS:
-        s = summary_by_bucket.get(b) or {}
-        cnt = int(s.get("count") or 0)
-        if cnt <= 0:
-            continue
-        label = BUCKET_LABEL_KO.get(b, b)
-        bwr_a = float(s["win_rate"]["A"])
-        bwr_b = float(s["win_rate"]["B"])
-        dom = "A" if bwr_a >= bwr_b else "B"
-        dom_wr = bwr_a if dom == "A" else bwr_b
-        bsa = float(s["avg_score"]["A"])
-        bsb = float(s["avg_score"]["B"])
-        bucket_bits.append(
-            f"{label} n={cnt} · {dom} 우세 {dom_wr:.0%}(승률 A {bwr_a:.0%}/B {bwr_b:.0%}, "
-            f"평균점수 A {bsa:.1f}/B {bsb:.1f})"
-        )
-    if bucket_bits:
-        lines.append("연령대별 요약: " + " / ".join(bucket_bits))
-
-    loser = "B" if final_winner == "A" else "A"
-    loser_share = wr_b if loser == "B" else wr_a
-    max_quotes = max(0, max_items - len(lines) - 1)
-    lines.extend(_winner_aligned_quotes(all_rows, final_winner, max_quotes=max_quotes))
-
-    cp = _minority_counterpoint_line(all_rows, loser, loser_share)
-    if cp and len(lines) < max_items:
-        lines.append(cp)
-
-    return lines[:max_items]
-
-
 def evaluate_one(
     persona: Persona,
     campaign: dict,
@@ -554,7 +449,15 @@ def write_json(path: Path, obj: dict) -> None:
         json.dump(obj, f, ensure_ascii=False, indent=2)
 
 
-def write_text_report(path: Path, campaign: dict, report: dict, warnings: list[str], runtime: dict) -> None:
+def write_text_report(
+    path: Path,
+    campaign: dict,
+    report: dict,
+    warnings: list[str],
+    runtime: dict,
+    *,
+    tokens: dict | None = None,
+) -> None:
     lines = []
     lines.append("# Nemotron Persona Marketing Validation Report")
     lines.append("")
@@ -562,6 +465,19 @@ def write_text_report(path: Path, campaign: dict, report: dict, warnings: list[s
     lines.append(f"- final_winner: {report['final_winner']}")
     lines.append(f"- elapsed_sec: {runtime['elapsed_sec']:.3f}")
     lines.append(f"- peak_memory_mb: {runtime['peak_memory_mb']:.2f}")
+    if tokens:
+        eval_calls = int(tokens.get("eval_call_count", tokens.get("task_count", 0)) or 0)
+        syn_calls = int(tokens.get("synthesis_call_count", 0) or 0)
+        total_calls = int(tokens.get("llm_call_count", eval_calls + syn_calls) or 0)
+        call_parts = [f"eval {eval_calls}"]
+        if syn_calls:
+            call_parts.append(f"synthesis {syn_calls}")
+        lines.append(f"- llm_calls: {total_calls} ({', '.join(call_parts)})")
+        lines.append(
+            f"- tokens: prompt={int(tokens.get('prompt_tokens', 0))} "
+            f"completion={int(tokens.get('completion_tokens', 0))} "
+            f"total={int(tokens.get('total_tokens', 0))}"
+        )
     lines.append("")
     lines.append("## Bucket Summary")
     for b in AGE_BUCKETS:

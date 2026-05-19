@@ -1,13 +1,11 @@
 """langchain-chroma로 기존 persona_db 컬렉션을 읽기 전용 래핑 (선택 경로)."""
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 
-from nemotron_ab.campaign_assets import payload_has_any_image
 from nemotron_ab.config import get_embed_model_name
 from nemotron_ab.torch_device import resolve_chroma_lc_device
 from nemotron_ab.persona_filter_schema import retrieval_fanout_multiplier
@@ -56,16 +54,23 @@ def retrieve_personas_langchain(
     k: int,
     **vs_kwargs: Any,
 ) -> list[dict[str, Any]]:
-    """validator_runner와 동일한 쿼리·필터로 LangChain Chroma 검색 후 행 dict 목록."""
-    query_text = " ".join(
-        [
-            str(payload.get("context", "") or ""),
-            str(payload.get("text_a", "") or ""),
-            str(payload.get("text_b", "") or ""),
-        ]
-    ).strip()
-    if payload_has_any_image(payload):
-        query_text = f"{query_text} 이미지 포함".strip()
+    """버킷별 검색+라운드로빈(기본). PERSONA_RETRIEVE_LEGACY=1이면 단일 쿼리."""
+    from nemotron_ab.persona_retrieval import (
+        build_retrieval_query_text,
+        clamp_retrieval_k_per_bucket,
+        retrieve_personas_balanced_langchain,
+        use_legacy_single_query_retrieval,
+    )
+
+    if not use_legacy_single_query_retrieval():
+        return retrieve_personas_balanced_langchain(
+            payload,
+            max_personas=max_personas,
+            per_bucket_k=clamp_retrieval_k_per_bucket(k),
+            **vs_kwargs,
+        )
+
+    query_text = build_retrieval_query_text(payload)
     persona_filter = payload["persona_filter"]
     occ_needle = str(persona_filter.get("occupation_contains", "") or "").strip()
     district_kw = district_prefix_keyword(persona_filter)

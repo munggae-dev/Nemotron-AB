@@ -27,6 +27,7 @@ def test_job_token_totals_empty(fresh_conn: sqlite3.Connection) -> None:
         "prompt_tokens": 0,
         "completion_tokens": 0,
         "total_tokens": 0,
+        "llm_call_count": 0,
         "task_count": 0,
     }
 
@@ -51,6 +52,7 @@ def test_complete_task_persists_tokens(fresh_conn: sqlite3.Connection) -> None:
         "prompt_tokens": 120,
         "completion_tokens": 45,
         "total_tokens": 165,
+        "llm_call_count": 1,
         "task_count": 1,
     }
 
@@ -71,8 +73,19 @@ def test_job_token_totals_aggregates_multiple_tasks(fresh_conn: sqlite3.Connecti
         "prompt_tokens": 350,
         "completion_tokens": 90,
         "total_tokens": 440,
+        "llm_call_count": 3,
         "task_count": 3,
     }
+
+
+def test_job_token_totals_ignores_pending_tasks(fresh_conn: sqlite3.Connection) -> None:
+    jid = db.enqueue_job(fresh_conn, "mix", {"k": "v"}, status="pending")
+    tid_done = db.insert_job_task(fresh_conn, jid, "llm_score", {"i": 1})
+    db.complete_task(fresh_conn, tid_done, prompt_tokens=10, completion_tokens=5, total_tokens=15)
+    db.insert_job_task(fresh_conn, jid, "llm_score", {"i": 2})
+    totals = db.job_token_totals(fresh_conn, jid)
+    assert totals["llm_call_count"] == 1
+    assert totals["total_tokens"] == 15
 
 
 def test_init_db_migrates_legacy_job_tasks(tmp_path: Path) -> None:

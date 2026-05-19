@@ -7,7 +7,7 @@
 ## 주요 기능
 
 - 19~59세 페르소나 필터·연령 버킷(20s/30s/40s/50s, 19세는 20s) 분석
-- 벡터 DB(Chroma) 기반 페르소나 검색 (`retrieval_k_per_bucket` 로 후보 수 조절)
+- 벡터 DB(Chroma) 기반 페르소나 검색: 연령 버킷별 의미 검색 후 라운드로빈 (`retrieval_k_per_bucket` · `max_personas`; 활성 버킷×rk가 목표보다 작으면 UI 경고)
 - 단문·이미지 A/B: 변형마다 텍스트만/이미지만/복합 가능 (공개 URL 또는 업로드)
 - **OpenAI 호환 LLM 추상화**: `mock` 또는 OpenAI 호환 엔드포인트 (Ollama `/v1` · OpenAI 등) 를 동일 코드 경로로 사용. 멀티모달 지원
 - **토큰 사용량 추적**: 평가마다 `prompt/completion/total` 토큰 수를 저장하고 job 단위로 집계하여 응답·UI 에 노출
@@ -15,6 +15,7 @@
 - **DB 백엔드 선택**: 기본 SQLite, `DATABASE_URL=postgresql+psycopg://…` 로 PostgreSQL 도 동일 코드 경로
 - Next.js (`frontend`) + FastAPI (`backend`) UI/API + RDB 큐 + 워커
 - 작업 완료·실패 알림과 보고서(JSON/Markdown) 자동 생성
+- **리포트 종합 분석**: 완료 리포트 화면에서 집계·핵심 인사이트·A/B 맥락을 LLM으로 1회 해석 (`POST /jobs/{id}/report/synthesize`, Base URL·모델 선택 가능)
 
 ## 문서
 

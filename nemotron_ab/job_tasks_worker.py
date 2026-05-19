@@ -16,6 +16,7 @@ from nemotron_ab import db
 from nemotron_ab.campaign_assets import normalize_job_payload_images
 from nemotron_ab.langchain_eval import evaluate_persona_langchain
 from nemotron_ab.llm_provider import resolve_llm_config
+from nemotron_ab.llm_usage import build_job_llm_usage
 from nemotron_ab.prompt_profile import (
     default_max_persona_chars,
     resolve_prompt_profile,
@@ -302,7 +303,8 @@ def _persist_aggregated_report(
             "failed_personas": int(failed),
         },
     }
-    token_totals = db.job_token_totals(conn, job_id)
+    eval_tokens = db.job_token_totals(conn, job_id)
+    token_totals = build_job_llm_usage(eval_tokens)
     report_obj = {
         "campaign": campaign,
         "profile": payload.get("profile", "small"),
@@ -328,6 +330,7 @@ def _persist_aggregated_report(
         report=report,
         warnings=report_obj["warnings"],
         runtime=report_obj["runtime"],
+        tokens=token_totals,
     )
     partial_live = _partial_path(job_id)
     if partial_live.exists():
@@ -347,54 +350,6 @@ def _persist_aggregated_report(
         report_json_path=str(report_json),
         partial_jsonl_path=str(partial_jsonl),
         summary=summary,
-    )
-    return summary
-
-
-def reaggregate_completed_job(conn, job_id: int) -> dict[str, Any]:
-    """완료된 작업의 partial JSONL을 다시 읽어 리포트·요약을 재생성합니다(API 재집계용)."""
-    job = db.fetch_job(conn, job_id)
-    if job is None:
-        raise ValueError("job not found")
-    if str(job["status"]) != "completed":
-        raise ValueError("completed 상태의 작업만 재집계할 수 있습니다")
-
-    res = db.fetch_job_result(conn, job_id)
-    if res is None:
-        raise ValueError("job_results 행이 없습니다")
-
-    payload = json.loads(job["payload_json"])
-    campaign = _make_campaign_payload(job_id, payload)[0]
-
-    paths_try = []
-    rp = res["partial_jsonl_path"]
-    if rp:
-        paths_try.append(Path(str(rp)))
-    paths_try.append(_partial_path(job_id))
-
-    rows_for_agg: list[dict[str, Any]] = []
-    seen_partial_path: Path | None = None
-    for p in paths_try:
-        chunk = _rows_from_partial_file(p)
-        if chunk:
-            rows_for_agg = chunk
-            seen_partial_path = p
-            break
-
-    if not rows_for_agg:
-        raise ValueError(
-            "집계할 partial 행이 없습니다(partial.jsonl 경로를 확인하세요)."
-            f" 시도한 경로: {[str(p) for p in paths_try]}"
-        )
-
-    failed = db.count_job_tasks(conn, job_id, status="failed")
-    summary = _persist_aggregated_report(conn, job_id, payload, campaign, rows_for_agg, failed)
-    db.add_notification(
-        conn,
-        job_id,
-        "info",
-        f"작업 #{job_id} 리포트 재집계",
-        f"최종 추천: {summary['final_winner']} (partial: {seen_partial_path})",
     )
     return summary
 

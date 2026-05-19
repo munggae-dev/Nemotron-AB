@@ -58,3 +58,10 @@ class JobCloneOptions(BaseModel):
     """원본 job 재실행 옵션. 모두 비워두면 원본 그대로 복제·재실행."""
 
     title: str | None = None
+
+
+class SynthesizeReportBody(BaseModel):
+    """리포트 종합 분석 LLM 설정(비우면 작업 payload·서버 env 순으로 폴백)."""
+
+    llm_base_url: str = ""
+    llm_model: str = ""

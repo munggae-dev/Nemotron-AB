@@ -4,11 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { BrowserNotificationSettings } from "@/components/BrowserNotificationSettings";
 import { apiGet, apiPatch, type NotificationRow } from "@/lib/api";
+import { requestNotificationsUnreadRefresh } from "@/lib/notification-unread";
 
 export default function NotificationsPage() {
   const [rows, setRows] = useState<NotificationRow[]>([]);
   const [unread, setUnread] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [markAllBusy, setMarkAllBusy] = useState(false);
 
   const load = useCallback(async () => {
     setErr(null);
@@ -19,6 +21,7 @@ export default function NotificationsPage() {
       ]);
       setRows(list);
       setUnread(uc.count);
+      requestNotificationsUnreadRefresh();
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : String(e));
     }
@@ -37,6 +40,20 @@ export default function NotificationsPage() {
     }
   }
 
+  async function markAllRead() {
+    if (!unread) return;
+    setMarkAllBusy(true);
+    setErr(null);
+    try {
+      await apiPatch<{ status: string; updated: number }>("/notifications/read-all");
+      await load();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setMarkAllBusy(false);
+    }
+  }
+
   return (
     <>
       <div className="page-header">
@@ -52,9 +69,19 @@ export default function NotificationsPage() {
             )}
           </p>
         </div>
-        <button type="button" className="btn secondary" onClick={() => void load()}>
-          새로고침
-        </button>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+          <button
+            type="button"
+            className="btn secondary"
+            disabled={markAllBusy || !unread}
+            onClick={() => void markAllRead()}
+          >
+            {markAllBusy ? "처리 중…" : "모두 읽기"}
+          </button>
+          <button type="button" className="btn secondary" onClick={() => void load()} disabled={markAllBusy}>
+            새로고침
+          </button>
+        </div>
       </div>
       <BrowserNotificationSettings />
 

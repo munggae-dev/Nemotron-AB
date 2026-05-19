@@ -37,6 +37,23 @@ export async function apiUploadJobAsset(file: File): Promise<{ asset_ref: string
   return r.json() as Promise<{ asset_ref: string }>;
 }
 
+/** 완료 작업 등에 저장된 이미지를 받아 새 스테이징 asset_ref 로 올립니다(복제·수정용). */
+export async function apiImportJobAssetFromJob(
+  jobId: number,
+  variant: "a" | "b",
+): Promise<{ asset_ref: string }> {
+  const r = await fetch(`${getApiBaseUrl()}/jobs/${jobId}/images/${variant}`, { cache: "no-store" });
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(t || `이미지 불러오기 실패 (${variant})`);
+  }
+  const blob = await r.blob();
+  const mime = blob.type || "image/jpeg";
+  const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : mime.includes("gif") ? "gif" : "jpg";
+  const file = new File([blob], `job-${jobId}-variant-${variant}.${ext}`, { type: mime });
+  return apiUploadJobAsset(file);
+}
+
 export async function apiPatch<T>(path: string): Promise<T> {
   const r = await fetch(`${getApiBaseUrl()}${path}`, { method: "PATCH" });
   if (!r.ok) {
@@ -91,6 +108,11 @@ export type TokenUsage = {
   completion_tokens: number;
   total_tokens: number;
   task_count?: number;
+  llm_call_count?: number;
+  eval_call_count?: number;
+  synthesis_call_count?: number;
+  eval_total_tokens?: number;
+  synthesis_total_tokens?: number;
 };
 
 export type ReportSummary = {
@@ -112,6 +134,71 @@ export type ReportSummary = {
       failed_personas?: number;
     };
   };
+  synthesis_headline?: string;
+  synthesis_generated_at?: string;
+  synthesis_model?: string;
+};
+
+export type SynthesisContent = {
+  headline?: string;
+  executive_summary?: string;
+  segment_notes?: string;
+  action_items?: string[];
+  limitations?: string;
+  full_markdown?: string;
+};
+
+export type PersonaEvalRow = {
+  persona_id?: string;
+  age?: number;
+  bucket?: string;
+  winner?: string;
+  weighted_score?: { A?: number; B?: number };
+  confidence?: number;
+  reason?: string;
+};
+
+export type SynthesisInputsUsed = {
+  context?: string;
+  text_a?: string;
+  text_b?: string;
+  multimodal?: boolean;
+  aggregation?: {
+    final_winner?: string;
+    overall?: { count?: number };
+    key_reasons?: string[];
+    summary_by_bucket?: Record<string, unknown>;
+    conditional_recommendation?: unknown[];
+  };
+  persona_evaluations?: PersonaEvalRow[];
+  persona_evaluations_meta?: {
+    total_rows?: number;
+    included_rows?: number;
+    truncated?: boolean;
+    partial_jsonl_path?: string;
+  };
+};
+
+export type SynthesisBlock = {
+  generated_at?: string;
+  model?: string;
+  base_url?: string;
+  base_url_host?: string;
+  multimodal?: boolean;
+  tokens?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
+  content?: SynthesisContent | null;
+  error?: string | null;
+  inputs_used?: SynthesisInputsUsed;
+  persona_evaluations_meta?: SynthesisInputsUsed["persona_evaluations_meta"];
+};
+
+export type SynthesizeReportBody = {
+  llm_base_url?: string;
+  llm_model?: string;
 };
 
 export type JobProgress = {

@@ -115,7 +115,6 @@ def _run_ab_validator_subprocess(cmd: list[str]) -> subprocess.CompletedProcess:
 import chromadb
 from sentence_transformers import SentenceTransformer
 
-from nemotron_ab.campaign_assets import payload_has_any_image
 from nemotron_ab.config import get_embed_model_name
 from nemotron_ab.torch_device import resolve_torch_device
 from nemotron_ab.persona_filter_schema import retrieval_fanout_multiplier
@@ -160,12 +159,24 @@ def _make_campaign_payload(job_id: int, payload: dict) -> list[dict]:
 def _retrieve_filtered_personas(payload: dict, max_personas: int) -> list[dict]:
     import os
 
-    if os.environ.get("PERSONA_RETRIEVE_BACKEND", "").strip().lower() == "langchain_chroma":
-        from app.chroma_langchain import retrieve_personas_langchain
+    from nemotron_ab.persona_retrieval import (
+        build_retrieval_query_text,
+        clamp_retrieval_k_per_bucket,
+        retrieve_personas_balanced_chroma,
+        retrieve_personas_balanced_langchain,
+        use_legacy_single_query_retrieval,
+    )
 
-        rk = int(payload.get("retrieval_k_per_bucket") or 80)
-        rk = max(20, min(500, rk))
-        return retrieve_personas_langchain(payload, max_personas=max_personas, k=rk)
+    rk = clamp_retrieval_k_per_bucket(payload.get("retrieval_k_per_bucket"))
+
+    if os.environ.get("PERSONA_RETRIEVE_BACKEND", "").strip().lower() == "langchain_chroma":
+        from nemotron_ab.chroma_langchain import retrieve_personas_langchain
+
+        if use_legacy_single_query_retrieval():
+            return retrieve_personas_langchain(payload, max_personas=max_personas, k=rk)
+        return retrieve_personas_balanced_langchain(
+            payload, max_personas=max_personas, per_bucket_k=rk
+        )
 
     db_path = str((ROOT_DIR / "persona_db").resolve())
     collection_name = "marketing_personas"
@@ -176,22 +187,28 @@ def _retrieve_filtered_personas(payload: dict, max_personas: int) -> list[dict]:
         device = resolve_torch_device(os.environ.get("RETRIEVAL_DEVICE", "auto"))
         _RETRIEVAL_MODEL = SentenceTransformer(get_embed_model_name(), device=device)
 
+    if not use_legacy_single_query_retrieval():
+        query_text = build_retrieval_query_text(payload)
+        query_embedding = _RETRIEVAL_MODEL.encode(
+            [query_text],
+            convert_to_numpy=True,
+            normalize_embeddings=True,
+            show_progress_bar=False,
+        )[0].tolist()
+        return retrieve_personas_balanced_chroma(
+            collection,
+            query_embedding,
+            payload,
+            max_personas=max_personas,
+            per_bucket_k=rk,
+        )
+
     persona_filter = payload["persona_filter"]
     where = chroma_where_and(persona_filter)
     occ_needle = str(persona_filter.get("occupation_contains", "") or "").strip()
     district_kw = district_prefix_keyword(persona_filter)
 
-    query_text = " ".join(
-        [
-            str(payload.get("context", "") or ""),
-            str(payload.get("text_a", "") or ""),
-            str(payload.get("text_b", "") or ""),
-        ]
-    ).strip()
-    if payload_has_any_image(payload):
-        query_text = f"{query_text} 이미지 크리에이티브 포함".strip()
-    rk = int(payload.get("retrieval_k_per_bucket") or 80)
-    rk = max(20, min(500, rk))
+    query_text = build_retrieval_query_text(payload)
     base_n = max(rk, max_personas, 20)
     mult = retrieval_fanout_multiplier(persona_filter)
     n_results = min(2000, max(base_n * mult, base_n))
@@ -218,7 +235,6 @@ def _retrieve_filtered_personas(payload: dict, max_personas: int) -> list[dict]:
         row = dict(meta or {})
         row["uuid"] = ids[idx] if idx < len(ids) else f"p-{idx}"
         row["persona"] = docs[idx] if idx < len(docs) else ""
-        # validator 정규화를 위한 최소 필드 보정
         row.setdefault("age", 0)
         row.setdefault("sex", "미상")
         row.setdefault("occupation", "미상")
@@ -230,7 +246,6 @@ def _retrieve_filtered_personas(payload: dict, max_personas: int) -> list[dict]:
             continue
         rows.append(row)
 
-    # district 부분일치 조건은 벡터 상위 샘플에서 누락될 수 있어, 비었으면 지역 우선 스캔으로 보강.
     if not rows and district_kw:
         offset = 0
         page = 1000

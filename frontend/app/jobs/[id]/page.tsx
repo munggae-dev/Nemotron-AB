@@ -4,7 +4,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ConfirmDeleteJobDialog } from "@/components/ConfirmDeleteJobDialog";
-import { apiDelete, apiGet, apiPost, type JobProgress, type JobRow } from "@/lib/api";
+import {
+  apiDelete,
+  apiGet,
+  apiPost,
+  type JobProgress,
+  type JobRow,
+  type PersonaEvalRow,
+  type SynthesisBlock,
+  type SynthesisContent,
+  type SynthesisInputsUsed,
+  type TokenUsage,
+} from "@/lib/api";
 import { isJobDeletable } from "@/lib/job-display";
 import { getApiBaseUrl } from "@/lib/api-base";
 
@@ -18,6 +29,43 @@ const BUCKET_LABEL: Record<string, string> = {
 };
 
 const BUCKET_ORDER = ["20s", "30s", "40s", "50s"] as const;
+
+const SYNTH_LLM_STORAGE_KEY = "nemotron.synthesis.llm";
+
+function jobLlmDefaults(payload: Record<string, unknown> | null): { baseUrl: string; model: string } {
+  if (!payload) {
+    return { baseUrl: "http://localhost:11434/v1", model: "gemma4:e2b-it-q4_K_M" };
+  }
+  const baseUrl = String(payload.llm_base_url ?? "").trim() || "http://localhost:11434/v1";
+  const model =
+    String(payload.llm_model ?? payload.ollama_model ?? "").trim() || "gemma4:e2b-it-q4_K_M";
+  return { baseUrl, model };
+}
+
+function parseSynthesis(root: ReportJson | null): SynthesisBlock | null {
+  if (!root) return null;
+  const s = root.synthesis;
+  if (!isRecord(s)) return null;
+  return s as SynthesisBlock;
+}
+
+function parseSynthesisInputsUsed(block: SynthesisBlock | null): SynthesisInputsUsed | null {
+  if (!block?.inputs_used || !isRecord(block.inputs_used)) return null;
+  return block.inputs_used;
+}
+
+function formatPersonaEvalLine(row: PersonaEvalRow): string {
+  const bucket = row.bucket ? String(row.bucket) : "";
+  const winner = row.winner ? String(row.winner) : "";
+  const reason = String(row.reason ?? "").trim();
+  const tag = [bucket, winner ? `안 ${winner}` : ""].filter(Boolean).join(" · ");
+  return tag ? `【${tag}】 ${reason}` : reason || "—";
+}
+
+function parseSynthesisContent(block: SynthesisBlock | null): SynthesisContent | null {
+  if (!block?.content || !isRecord(block.content)) return null;
+  return block.content as SynthesisContent;
+}
 
 type OverallStats = {
   count: number;
@@ -58,6 +106,38 @@ function parseOverall(report: Record<string, unknown>): OverallStats | null {
   };
 }
 
+function parseTokenUsage(raw: unknown): TokenUsage | null {
+  if (!isRecord(raw)) return null;
+  const prompt = Number(raw.prompt_tokens);
+  const completion = Number(raw.completion_tokens);
+  const total = Number(raw.total_tokens);
+  if (![prompt, completion, total].every((n) => Number.isFinite(n))) return null;
+  const evalCalls = Number(raw.eval_call_count ?? raw.task_count ?? raw.llm_call_count);
+  const synCalls = Number(raw.synthesis_call_count ?? 0);
+  const llmCalls = Number(raw.llm_call_count ?? (Number.isFinite(evalCalls) ? evalCalls + synCalls : 0));
+  return {
+    prompt_tokens: prompt,
+    completion_tokens: completion,
+    total_tokens: total,
+    task_count: Number.isFinite(evalCalls) ? evalCalls : undefined,
+    llm_call_count: Number.isFinite(llmCalls) ? llmCalls : undefined,
+    eval_call_count: Number.isFinite(evalCalls) ? evalCalls : undefined,
+    synthesis_call_count: Number.isFinite(synCalls) ? synCalls : undefined,
+    eval_total_tokens: Number.isFinite(Number(raw.eval_total_tokens)) ? Number(raw.eval_total_tokens) : undefined,
+    synthesis_total_tokens: Number.isFinite(Number(raw.synthesis_total_tokens))
+      ? Number(raw.synthesis_total_tokens)
+      : undefined,
+  };
+}
+
+function resolveReportLlmUsage(report: ReportJson | null, job: JobRow | null): TokenUsage | null {
+  const fromReport = parseTokenUsage(report?.tokens);
+  if (fromReport) return fromReport;
+  const fromSummary = parseTokenUsage(job?.report_summary?.tokens);
+  if (fromSummary) return fromSummary;
+  return parseTokenUsage(job?.tokens);
+}
+
 function extractReportBlob(root: ReportJson | null): Record<string, unknown> | null {
   if (!root) return null;
   const r = root.report ?? root["report"];
@@ -68,6 +148,14 @@ function truncateCopy(s: string, n: number): string {
   const t = s.trim();
   if (t.length <= n) return t;
   return `${t.slice(0, n)}…`;
+}
+
+/** 종합 분석「분석에 사용된 입력」용: 텍스트 없고 이미지만 있으면 (이미지). */
+function formatSynthesisVariantInput(text: string, hasImage: boolean, maxLen: number): string {
+  const t = text.trim();
+  if (t) return truncateCopy(t, maxLen);
+  if (hasImage) return "(이미지)";
+  return "—";
 }
 
 function parseJobPayload(raw: string | undefined): Record<string, unknown> | null {
@@ -203,8 +291,11 @@ export default function JobDetailPage() {
   const [job, setJob] = useState<JobRow | null>(null);
   const [report, setReport] = useState<ReportJson | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [reaggLoading, setReaggLoading] = useState(false);
-  const [reaggErr, setReaggErr] = useState<string | null>(null);
+  const [synthLoading, setSynthLoading] = useState(false);
+  const [synthErr, setSynthErr] = useState<string | null>(null);
+  const [synthLlmBaseUrl, setSynthLlmBaseUrl] = useState("");
+  const [synthLlmModel, setSynthLlmModel] = useState("");
+  const [synthLlmInitialized, setSynthLlmInitialized] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteErr, setDeleteErr] = useState<string | null>(null);
@@ -258,17 +349,59 @@ export default function JobDetailPage() {
     return () => window.clearInterval(id);
   }, [idStr, loadJob]);
 
-  async function onReaggregate() {
-    if (!idStr) return;
-    setReaggErr(null);
-    setReaggLoading(true);
+  useEffect(() => {
+    setSynthLlmInitialized(false);
+  }, [idStr]);
+
+  useEffect(() => {
+    if (!job || job.status !== "completed" || synthLlmInitialized) return;
+    const syn = parseSynthesis(report);
+    const fromJob = jobLlmDefaults(parseJobPayload(typeof job.payload_json === "string" ? job.payload_json : undefined));
+    let baseUrl = fromJob.baseUrl;
+    let model = fromJob.model;
+    if (syn?.base_url) baseUrl = String(syn.base_url);
+    if (syn?.model) model = String(syn.model);
     try {
-      await apiPost<unknown>(`/jobs/${idStr}/report/reaggregate`, {});
+      const stored = localStorage.getItem(SYNTH_LLM_STORAGE_KEY);
+      if (stored) {
+        const o = JSON.parse(stored) as { baseUrl?: string; model?: string };
+        if (o.baseUrl) baseUrl = o.baseUrl;
+        if (o.model) model = o.model;
+      }
+    } catch {
+      /* ignore */
+    }
+    setSynthLlmBaseUrl(baseUrl);
+    setSynthLlmModel(model);
+    setSynthLlmInitialized(true);
+  }, [job, report, synthLlmInitialized]);
+
+  async function onSynthesize() {
+    if (!idStr) return;
+    const syn = parseSynthesis(report);
+    if (syn?.content && !window.confirm("기존 종합 분석을 덮어씁니다. 계속할까요?")) {
+      return;
+    }
+    setSynthErr(null);
+    setSynthLoading(true);
+    try {
+      await apiPost<unknown>(`/jobs/${idStr}/report/synthesize`, {
+        llm_base_url: synthLlmBaseUrl.trim(),
+        llm_model: synthLlmModel.trim(),
+      });
+      try {
+        localStorage.setItem(
+          SYNTH_LLM_STORAGE_KEY,
+          JSON.stringify({ baseUrl: synthLlmBaseUrl.trim(), model: synthLlmModel.trim() }),
+        );
+      } catch {
+        /* ignore */
+      }
       reload();
     } catch (e: unknown) {
-      setReaggErr(e instanceof Error ? e.message : String(e));
+      setSynthErr(e instanceof Error ? e.message : String(e));
     } finally {
-      setReaggLoading(false);
+      setSynthLoading(false);
     }
   }
 
@@ -317,6 +450,53 @@ export default function JobDetailPage() {
         ? (campaign.copy_b as string)
         : "";
   const payloadParsed = parseJobPayload(typeof job?.payload_json === "string" ? job.payload_json : undefined);
+  const evalLlmDefaults = jobLlmDefaults(payloadParsed);
+  const synthesisBlock = parseSynthesis(report);
+  const synthesisContent = parseSynthesisContent(synthesisBlock);
+  const synthesisInputsUsed = parseSynthesisInputsUsed(synthesisBlock);
+  const [partialEvalPreview, setPartialEvalPreview] = useState<{
+    rows: PersonaEvalRow[];
+    meta: { total_rows?: number; included_rows?: number; truncated?: boolean };
+  } | null>(null);
+
+  useEffect(() => {
+    if (!idStr || job?.status !== "completed" || synthesisInputsUsed?.persona_evaluations?.length) {
+      return undefined;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await apiGet<{
+          rows: PersonaEvalRow[];
+          meta: { total_rows?: number; included_rows?: number; truncated?: boolean };
+        }>(`/jobs/${idStr}/partial-evaluations`);
+        if (!cancelled) setPartialEvalPreview(res);
+      } catch {
+        if (!cancelled) setPartialEvalPreview(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [idStr, job?.status, synthesisInputsUsed?.persona_evaluations?.length]);
+  const reportLlmUsage =
+    resolveReportLlmUsage(report, job) ??
+    (overall
+      ? {
+          prompt_tokens: 0,
+          completion_tokens: 0,
+          total_tokens: 0,
+          llm_call_count: overall.count,
+          eval_call_count: overall.count,
+          synthesis_call_count: 0,
+        }
+      : null);
+
+  function resetSynthLlmToEval() {
+    setSynthLlmBaseUrl(evalLlmDefaults.baseUrl);
+    setSynthLlmModel(evalLlmDefaults.model);
+  }
+
   const showImgA = payloadHasImage(payloadParsed, "image_a");
   const showImgB = payloadHasImage(payloadParsed, "image_b");
   const runtimeSec =
@@ -360,13 +540,7 @@ export default function JobDetailPage() {
                 </span>
                 JSON 내보내기
               </button>
-              <button type="button" className="btn secondary" disabled={reaggLoading} onClick={() => void onReaggregate()}>
-                <span className="material-symbols-outlined" style={{ fontSize: 18, verticalAlign: "middle", marginRight: 6 }}>
-                  calculate
-                </span>
-                리포트 재집계
-              </button>
-              <button type="button" className="btn" onClick={() => reload()} disabled={reaggLoading}>
+              <button type="button" className="btn" onClick={() => reload()} disabled={synthLoading}>
                 <span className="material-symbols-outlined" style={{ fontSize: 18, verticalAlign: "middle", marginRight: 6 }}>
                   refresh
                 </span>
@@ -375,7 +549,7 @@ export default function JobDetailPage() {
               <button
                 type="button"
                 className="btn btn--danger"
-                disabled={reaggLoading || deleteLoading}
+                disabled={synthLoading || deleteLoading}
                 onClick={() => {
                   setDeleteErr(null);
                   setDeleteOpen(true);
@@ -420,7 +594,7 @@ export default function JobDetailPage() {
       )}
 
       {err && <div className="msg err">{err}</div>}
-      {reaggErr && <div className="msg err">{reaggErr}</div>}
+      {synthErr && <div className="msg err">{synthErr}</div>}
 
       {job?.status === "completed" && report && !overall && (
         <>
@@ -544,6 +718,47 @@ export default function JobDetailPage() {
               </div>
             </div>
 
+            <div className="report-usage-card">
+              <div className="report-usage-card-icon" aria-hidden>
+                <span className="material-symbols-outlined">token</span>
+              </div>
+              <div>
+                <h4>LLM 사용량</h4>
+                <p className="report-usage-stat">
+                  호출{" "}
+                  <strong>
+                    {Number(reportLlmUsage?.llm_call_count ?? reportLlmUsage?.task_count ?? 0).toLocaleString()}
+                  </strong>
+                  회
+                  {reportLlmUsage?.eval_call_count != null ? (
+                    <span className="report-usage-sub">
+                      {" "}
+                      (페르소나 평가 {reportLlmUsage.eval_call_count.toLocaleString()}
+                      {reportLlmUsage.synthesis_call_count
+                        ? ` · 종합 분석 ${reportLlmUsage.synthesis_call_count.toLocaleString()}`
+                        : ""}
+                      )
+                    </span>
+                  ) : null}
+                </p>
+                <p className="report-usage-stat muted" style={{ margin: "6px 0 0", fontSize: 13 }}>
+                  토큰 prompt{" "}
+                  <span className="mono-cell">{Number(reportLlmUsage?.prompt_tokens ?? 0).toLocaleString()}</span>
+                  {" · "}
+                  completion{" "}
+                  <span className="mono-cell">{Number(reportLlmUsage?.completion_tokens ?? 0).toLocaleString()}</span>
+                  {" · "}
+                  total <strong>{Number(reportLlmUsage?.total_tokens ?? 0).toLocaleString()}</strong>
+                </p>
+                {Number(reportLlmUsage?.total_tokens ?? 0) === 0 &&
+                Number(reportLlmUsage?.llm_call_count ?? reportLlmUsage?.task_count ?? 0) > 0 ? (
+                  <p className="muted" style={{ margin: "8px 0 0", fontSize: 12 }}>
+                    호출은 기록됐으나 엔드포인트가 usage 를 반환하지 않아 토큰이 0 으로 보일 수 있습니다.
+                  </p>
+                ) : null}
+              </div>
+            </div>
+
             <div className="report-confidence-card">
               <div className="report-confidence-ring">
                 <span>{confPct.toFixed(0)}%</span>
@@ -579,6 +794,240 @@ export default function JobDetailPage() {
                 </span>
               </div>
             </div>
+          </div>
+
+          <div className="report-synthesis-card">
+            <h3>종합 분석</h3>
+            <p className="section-sub muted" style={{ marginTop: 0 }}>
+              집계 수치·핵심 인사이트와 함께 partial.jsonl의 페르소나별 평가 전체 표본(reason 포함)을 LLM에 넘깁니다.
+              종합 분석만 다른 모델을 쓸 수
+              있습니다.
+              {showImgA || showImgB
+                ? " 이 작업은 안 A·B 이미지를 종합 분석 LLM에도 첨부합니다(비전 지원 모델 필요)."
+                : ""}{" "}
+              API 키는 서버 환경변수 <code>LLM_API_KEY</code> 입니다.
+            </p>
+            <div className="report-synthesis-llm">
+              <div className="row cols-2" style={{ gap: 12, marginBottom: 12 }}>
+                <div>
+                  <label htmlFor="synth-llm-base-url">Base URL</label>
+                  <input
+                    id="synth-llm-base-url"
+                    type="url"
+                    value={synthLlmBaseUrl}
+                    onChange={(e) => setSynthLlmBaseUrl(e.target.value)}
+                    disabled={synthLoading}
+                    placeholder="http://localhost:11434/v1"
+                    autoComplete="off"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="synth-llm-model">모델</label>
+                  <input
+                    id="synth-llm-model"
+                    type="text"
+                    value={synthLlmModel}
+                    onChange={(e) => setSynthLlmModel(e.target.value)}
+                    disabled={synthLoading}
+                    placeholder="gemma4:e2b-it-q4_K_M"
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", marginBottom: 16 }}>
+                <button type="button" className="btn secondary" disabled={synthLoading} onClick={resetSynthLlmToEval}>
+                  평가와 동일
+                </button>
+                <button type="button" className="btn" disabled={synthLoading} onClick={() => void onSynthesize()}>
+                  <span
+                    className="material-symbols-outlined"
+                    style={{ fontSize: 18, verticalAlign: "middle", marginRight: 6 }}
+                  >
+                    {synthLoading ? "progress_activity" : "auto_awesome"}
+                  </span>
+                  {synthLoading ? "생성 중…" : synthesisContent ? "종합 분석 다시 생성" : "종합 분석 생성"}
+                </button>
+                <span className="muted" style={{ fontSize: 13 }}>
+                  약 30초~2분 · LLM 1회 호출
+                </span>
+              </div>
+            </div>
+            {synthLoading ? (
+              <div className="report-synthesis-loading" aria-busy="true">
+                <div className="report-synthesis-skeleton" />
+                <div className="report-synthesis-skeleton" />
+                <div className="report-synthesis-skeleton report-synthesis-skeleton--short" />
+                <p className="muted" style={{ margin: "12px 0 0", fontSize: 14 }}>
+                  페르소나 평가와 별도로 LLM을 1회 호출합니다…
+                </p>
+              </div>
+            ) : null}
+            {!synthLoading && synthesisBlock?.error && !synthesisContent ? (
+              <div className="msg err" style={{ marginBottom: 12 }}>
+                {synthesisBlock.error}
+                <div style={{ marginTop: 10 }}>
+                  <button type="button" className="btn secondary" onClick={() => void onSynthesize()}>
+                    다시 시도
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            {!synthLoading && synthesisContent ? (
+              <div className="report-synthesis-body">
+                <p className="report-synthesis-headline">{synthesisContent.headline}</p>
+                {synthesisContent.executive_summary ? (
+                  <p className="report-synthesis-summary">{synthesisContent.executive_summary}</p>
+                ) : null}
+                {Array.isArray(synthesisContent.action_items) && synthesisContent.action_items.length > 0 ? (
+                  <ul className="report-synthesis-actions">
+                    {synthesisContent.action_items.map((item) => (
+                      <li key={item}>
+                        <span className="material-symbols-outlined" aria-hidden>
+                          check_circle
+                        </span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {synthesisContent.segment_notes ? (
+                  <details className="report-synthesis-details">
+                    <summary>세그먼트 해석</summary>
+                    <p>{synthesisContent.segment_notes}</p>
+                  </details>
+                ) : null}
+                {synthesisContent.limitations ? (
+                  <details className="report-synthesis-details">
+                    <summary>시뮬레이션 한계</summary>
+                    <p>{synthesisContent.limitations}</p>
+                  </details>
+                ) : null}
+                {synthesisContent.full_markdown ? (
+                  <details className="report-synthesis-details">
+                    <summary>전체 마크다운</summary>
+                    <pre className="report-synthesis-markdown">{synthesisContent.full_markdown}</pre>
+                  </details>
+                ) : null}
+              </div>
+            ) : null}
+            {!synthLoading && !synthesisContent && !synthesisBlock?.error ? (
+              <p className="muted report-synthesis-empty">위에서 모델을 확인한 뒤 「종합 분석 생성」을 누르세요.</p>
+            ) : null}
+            {synthesisBlock?.generated_at || synthesisBlock?.model ? (
+              <p className="report-synthesis-meta">
+                {synthesisBlock?.generated_at ? (
+                  <span>생성: {new Date(synthesisBlock.generated_at).toLocaleString()}</span>
+                ) : null}
+                {synthesisBlock?.model ? <span> · 모델: {synthesisBlock.model}</span> : null}
+                {synthesisBlock?.multimodal ? <span> · 이미지 첨부됨</span> : null}
+                {synthesisBlock?.tokens && Number(synthesisBlock.tokens.total_tokens) > 0 ? (
+                  <span> · 토큰: {Number(synthesisBlock.tokens.total_tokens).toLocaleString()} (종합 분석만)</span>
+                ) : null}
+              </p>
+            ) : null}
+            <details className="report-synthesis-sources raw-json-details" style={{ marginTop: 12 }}>
+              <summary>분석에 사용된 입력</summary>
+              <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
+                종합 분석 LLM에는 <strong>집계 리포트</strong>와{" "}
+                <strong>partial.jsonl 페르소나별 평가 전체 표본</strong>(reason 포함)이 함께 전달됩니다.
+              </p>
+              <p className="muted" style={{ fontSize: 13 }}>
+                <strong>맥락</strong>
+                <br />
+                {truncateCopy(
+                  synthesisInputsUsed?.context ??
+                    (typeof campaign?.context === "string" ? campaign.context : ""),
+                  500,
+                ) || "—"}
+              </p>
+              <p className="muted" style={{ fontSize: 13 }}>
+                <strong>안 A</strong>:{" "}
+                {formatSynthesisVariantInput(
+                  synthesisInputsUsed?.text_a ?? copyA,
+                  showImgA,
+                  200,
+                )}
+                <br />
+                <strong>안 B</strong>:{" "}
+                {formatSynthesisVariantInput(
+                  synthesisInputsUsed?.text_b ?? copyB,
+                  showImgB,
+                  200,
+                )}
+                {synthesisInputsUsed?.multimodal || synthesisBlock?.multimodal ? (
+                  <>
+                    <br />
+                    <span style={{ fontSize: 12 }}>이미지: LLM에 data URL로 첨부됨</span>
+                  </>
+                ) : null}
+              </p>
+              <p className="muted" style={{ fontSize: 13 }}>
+                <strong>집계</strong>
+                {synthesisInputsUsed?.aggregation?.final_winner || finalWinner ? (
+                  <>
+                    {" "}
+                    · 최종 추천 Variant {String(synthesisInputsUsed?.aggregation?.final_winner ?? finalWinner)}
+                  </>
+                ) : null}
+                {overall?.count != null ? <> · 표본 {overall.count}건</> : null}
+              </p>
+              {(synthesisInputsUsed?.aggregation?.key_reasons ?? keyReasons).length > 0 ? (
+                <>
+                  <p className="muted" style={{ fontSize: 12, margin: "8px 0 4px" }}>
+                    핵심 인사이트(집계 요약)
+                  </p>
+                  <ul className="muted" style={{ fontSize: 13, paddingLeft: "1.1rem", marginTop: 0 }}>
+                    {(synthesisInputsUsed?.aggregation?.key_reasons ?? keyReasons).map((r) => (
+                      <li key={r}>{r}</li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
+              {(() => {
+                const evalRows =
+                  synthesisInputsUsed?.persona_evaluations ??
+                  partialEvalPreview?.rows ??
+                  [];
+                const evalMeta =
+                  synthesisInputsUsed?.persona_evaluations_meta ??
+                  synthesisBlock?.persona_evaluations_meta ??
+                  partialEvalPreview?.meta;
+                const total = evalMeta?.total_rows ?? evalRows.length;
+                const included = evalMeta?.included_rows ?? evalRows.length;
+                if (!total && evalRows.length === 0) {
+                  return (
+                    <p className="muted" style={{ fontSize: 13, marginTop: 10 }}>
+                      <strong>페르소나별 평가 표본</strong>: 아직 없거나 불러오지 못했습니다. 종합 분석을 다시
+                      생성하면 스냅샷이 저장됩니다.
+                    </p>
+                  );
+                }
+                return (
+                  <div style={{ marginTop: 10 }}>
+                    <p className="muted" style={{ fontSize: 13, margin: "0 0 6px" }}>
+                      <strong>페르소나별 평가 표본</strong> (partial.jsonl)
+                      {total ? (
+                        <>
+                          {" "}
+                          · {included.toLocaleString()}/{total.toLocaleString()}건
+                          {evalMeta?.truncated ? " (프롬프트 길이 상한으로 일부만 포함)" : " 전체 포함"}
+                        </>
+                      ) : null}
+                    </p>
+                    <ul
+                      className="muted report-synthesis-persona-list"
+                      style={{ fontSize: 12, paddingLeft: "1.1rem", margin: 0, maxHeight: 280, overflow: "auto" }}
+                    >
+                      {evalRows.map((row, i) => (
+                        <li key={`${row.persona_id ?? "row"}-${i}`} style={{ marginBottom: 6 }}>
+                          {formatPersonaEvalLine(row)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
+            </details>
           </div>
 
           <div className="report-section-card">
@@ -713,15 +1162,14 @@ export default function JobDetailPage() {
             <div className="report-detail-foot">
               집계 결과입니다. 실제 전환율이 아니라 페르소나 시뮬레이션 점수입니다.
               {runtimeSec !== null && ` 집계 소요: ${runtimeSec.toFixed(3)}s`}
+              {reportLlmUsage ? (
+                <>
+                  {" "}
+                  · LLM 호출 {Number(reportLlmUsage.llm_call_count ?? reportLlmUsage.task_count ?? 0).toLocaleString()}
+                  회 · 토큰 total {Number(reportLlmUsage.total_tokens).toLocaleString()}
+                </>
+              ) : null}
             </div>
-            {job?.tokens && Number(job.tokens.total_tokens) > 0 ? (
-              <div className="report-detail-foot">
-                토큰 사용량: prompt {Number(job.tokens.prompt_tokens).toLocaleString()} ·
-                completion {Number(job.tokens.completion_tokens).toLocaleString()} ·
-                total <strong>{Number(job.tokens.total_tokens).toLocaleString()}</strong>
-                {job.tokens.task_count ? ` (${job.tokens.task_count}건 평가)` : ""}
-              </div>
-            ) : null}
           </div>
 
           {funnel && (
@@ -792,8 +1240,8 @@ export default function JobDetailPage() {
               <h3>핵심 인사이트</h3>
               <p className="muted" style={{ margin: "0 0 10px", fontSize: 13 }}>
                 앞 줄은 표본 전체 집계 수치, 이어서 연령대별 요약, 마지막은{" "}
-                <strong>최종 추천 Variant와 동일하게 우세로 판정된 표본</strong>에서 뽑은 LLM 근거입니다(
-                「소수 의견」은 반대쪽 우세 표본 비율이 낮아도 존재할 수 있음).
+                <strong>전체 평가 표본</strong>에서 신뢰도·점수 차가 큰 순으로 고른 LLM 근거입니다(각 줄에 그
+                페르소나가 선호한 안이 표시됩니다).
               </p>
               <div className="report-insight-body">
                 <div className="report-insight-icon">

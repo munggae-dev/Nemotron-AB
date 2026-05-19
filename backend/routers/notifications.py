@@ -23,6 +23,13 @@ def unread_count() -> dict[str, int]:
         return {"count": db.unread_notification_count(conn)}
 
 
+@router.patch("/read-all")
+def mark_all_read() -> dict[str, int | str]:
+    with get_conn() as conn:
+        updated = db.mark_all_notifications_read(conn)
+    return {"status": "ok", "updated": updated}
+
+
 @router.patch("/{notification_id}/read")
 def mark_read(notification_id: int) -> dict[str, str]:
     with get_conn() as conn:

@@ -36,6 +36,7 @@ flowchart TB
 
 - **등록**: `POST /jobs` → `jobs` 행 생성 → (기본) `preparing`에서 페르소나 검색 후 `job_tasks`(페르소나별 LLM 태스크) 적재
 - **실행**: 워커가 `llm_score` 태스크를 처리하며 LangChain `ChatOpenAI` (또는 mock) 호출 → `partial.jsonl` 누적 → 완료 시 리포트·`job_results` 요약 저장. 응답의 `usage_metadata` 에서 토큰 사용량을 추출해 `job_tasks.{prompt,completion,total}_tokens` 에 저장하고 job 단위 집계.
+- **종합 분석(수동)**: 리포트 UI에서 `POST /jobs/{id}/report/synthesize` — 페르소나 N회 평가와 별도로 LLM 1회 호출. 입력은 집계 리포트 + **`job_results.partial_jsonl`의 페르소나별 평가 전체 표본**(winner·점수·reason). 이미지가 있는 작업은 평가와 동일하게 **멀티모달**로 첨부. 모델은 요청 body → 작업 payload → `LLM_SYNTHESIS_*` env 순 ([`nemotron_ab/report_synthesis.py`](../nemotron_ab/report_synthesis.py)).
 - **이미지 A/B**: 페이로드에 이미지 참조(URL/경로)가 있으면 멀티모달 메시지로 평가([`nemotron_ab/langchain_eval.py`](../nemotron_ab/langchain_eval.py)). 자산은 `outputs/` 및 `outputs/staging/` 정책을 따름.
 - **DB 백엔드**: 기본 SQLite. `DATABASE_URL=postgresql+psycopg://…` 로 PostgreSQL 도 동일 코드 경로로 사용 가능 (Phase 3.2 의 dialect-agnostic SQL + `DBConnection` wrapper 덕분). 자세한 내용은 [`database.md`](./database.md).
 - **LLM Provider**: `llm_base_url` + `llm_model` 만으로 어떤 OpenAI 호환 엔드포인트도 동일 코드 경로로 호출. 토큰 사용량/JSON 강제/프롬프트 프로파일(`full`/`compact`) 안내는 [`llm-providers.md`](./llm-providers.md).
@@ -68,8 +69,9 @@ flowchart TB
 
 | 역할 | 모듈 |
 |------|------|
-| 페르소나 검색(기본) | `nemotron_ab/services/validator_runner.py` → `_retrieve_filtered_personas` |
-| 페르소나 검색(LangChain) | `env PERSONA_RETRIEVE_BACKEND=langchain_chroma` → `nemotron_ab/chroma_langchain.py` |
+| 페르소나 검색(기본) | `validator_runner._retrieve_filtered_personas` → `nemotron_ab/persona_retrieval.py` (버킷별 검색·라운드로빈) |
+| 페르소나 검색(LangChain) | `PERSONA_RETRIEVE_BACKEND=langchain_chroma` → `chroma_langchain` / 동일 `persona_retrieval` |
+| 레거시 단일 쿼리 | `PERSONA_RETRIEVE_LEGACY=1` (20대 치우침 가능) |
 | LLM 평가(큐 워커) | `nemotron_ab/job_tasks_worker.py` → `nemotron_ab/langchain_eval.py` |
 | LLM 프로바이더 추상화 | `nemotron_ab/llm_provider.py` (`LLMConfig`, `make_chat_llm`, `extract_usage`) |
 | 프롬프트 프로파일/입력 가드 | `nemotron_ab/prompt_profile.py` (`resolve_prompt_profile`, `truncate_persona_view`) |

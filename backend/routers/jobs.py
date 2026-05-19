@@ -8,7 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Query, Uplo
 from fastapi.responses import FileResponse, RedirectResponse
 
 from backend.deps import get_conn
-from backend.schemas.jobs import JobCloneOptions, JobCreate
+from backend.schemas.jobs import JobCloneOptions, JobCreate, SynthesizeReportBody
 from backend.services.job_enqueue import finalize_llm_enqueue_async, finalize_payload_after_enqueue
 from backend.services.job_payload import payload_from_create
 from backend.services.job_progress import compute_job_progress, parse_summary_json
@@ -19,7 +19,13 @@ from backend.services.job_validation import (
 )
 from nemotron_ab import db
 from nemotron_ab.campaign_assets import resolve_image_file_path, save_upload_to_staging
-from nemotron_ab.job_tasks_worker import purge_job_output_dir, reaggregate_completed_job, try_finalize_job
+from nemotron_ab.job_tasks_worker import purge_job_output_dir, try_finalize_job
+from nemotron_ab.llm_usage import build_job_llm_usage
+from nemotron_ab.report_synthesis import (
+    build_persona_evaluations_payload,
+    load_job_partial_eval_rows,
+    synthesize_job_report,
+)
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -154,7 +160,8 @@ def get_job(job_id: int) -> dict[str, Any]:
                 row = db.fetch_job_with_result(conn, job_id)
                 if row is not None:
                     d = dict(row)
-        d["report_summary"] = parse_summary_json(d.pop("summary_json", None))
+        summary = parse_summary_json(d.pop("summary_json", None))
+        d["report_summary"] = summary
         d.pop("report_json_path", None)
         d.pop("result_partial_jsonl_path", None)
         breakdown = db.job_task_status_counts(conn, job_id)
@@ -166,7 +173,11 @@ def get_job(job_id: int) -> dict[str, Any]:
         )
         if prog is not None:
             d["progress"] = prog
-        d["tokens"] = db.job_token_totals(conn, job_id)
+        summary_tokens = summary.get("tokens") if isinstance(summary, dict) else None
+        if isinstance(summary_tokens, dict) and summary_tokens:
+            d["tokens"] = summary_tokens
+        else:
+            d["tokens"] = build_job_llm_usage(db.job_token_totals(conn, job_id))
         return d
 
 
@@ -182,15 +193,24 @@ def delete_job_endpoint(job_id: int) -> dict[str, Any]:
     return {"status": "ok", "id": job_id}
 
 
-@router.post("/{job_id}/report/reaggregate", status_code=200)
-def reaggregate_job_report(job_id: int) -> dict[str, Any]:
-    """저장된 partial JSONL을 다시 집계해 리포트 파일·DB 요약을 갱신합니다."""
+@router.post("/{job_id}/report/synthesize", status_code=200)
+def synthesize_job_report_endpoint(
+    job_id: int,
+    body: SynthesizeReportBody | None = None,
+) -> dict[str, Any]:
+    """집계 리포트·맥락·핵심 인사이트를 바탕으로 LLM 종합 분석을 생성합니다."""
+    req = body or SynthesizeReportBody()
     with get_conn() as conn:
         try:
-            summary = reaggregate_completed_job(conn, job_id)
+            result = synthesize_job_report(
+                conn,
+                job_id,
+                body_base_url=req.llm_base_url.strip() or None,
+                body_model=req.llm_model.strip() or None,
+            )
         except ValueError as e:
             raise HTTPException(400, str(e)) from e
-        return {"status": "ok", "report_summary": summary}
+        return result
 
 
 @router.post("/{job_id}/clone", status_code=201)
@@ -242,6 +262,24 @@ async def clone_job(
         )
 
     return {"id": new_job_id}
+
+
+@router.get("/{job_id}/partial-evaluations")
+def get_partial_evaluations(job_id: int) -> dict[str, Any]:
+    """종합 분석·UI용 페르소나별 평가 표본(partial.jsonl)을 compact 형태로 반환합니다."""
+    with get_conn() as conn:
+        row = db.fetch_job(conn, job_id)
+        if row is None:
+            raise HTTPException(404, "job not found")
+        res = db.fetch_job_result(conn, job_id)
+    partial_path = str(res["partial_jsonl_path"]) if res else None
+    raw_rows = load_job_partial_eval_rows(job_id, partial_jsonl_path=partial_path)
+    compact, meta = build_persona_evaluations_payload(raw_rows)
+    return {
+        "rows": compact,
+        "meta": meta,
+        "partial_jsonl_path": partial_path,
+    }
 
 
 @router.get("/{job_id}/report")
