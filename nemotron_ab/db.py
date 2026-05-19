@@ -45,7 +45,7 @@ def _fetch_inserted_id(cur: Any) -> int:
 
 
 def default_sqlite_path() -> Path:
-    """환경변수 APP_SQLITE_PATH 또는 저장소 기본 app/app.sqlite3.
+    """환경변수 APP_SQLITE_PATH 또는 저장소 기본 nemotron_ab/app.sqlite3.
 
     상대 경로는 실행 cwd 가 아니라 저장소 루트 기준으로 해석한다.
     참고: 우선순위가 더 높은 `DATABASE_URL` 이 sqlite 이면 그 URL 경로를 반환한다.

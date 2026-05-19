@@ -14,6 +14,24 @@ def _row(winner: str, reason: str, conf: float = 0.5, bucket: str = "30s") -> di
     }
 
 
+def test_build_key_reasons_notes_win_rate_vs_score_mismatch() -> None:
+    overall = {
+        "count": 60,
+        "win_rate": {"A": 0.75, "B": 0.25},
+        "avg_score": {"A": 57.69, "B": 60.94},
+        "avg_confidence": 0.05,
+    }
+    reasons = build_key_reasons(
+        all_rows=[],
+        overall=overall,
+        summary_by_bucket={},
+        final_winner="B",
+        max_items=2,
+    )
+    assert "승률은 A가 높지만" in reasons[0]
+    assert "Variant B" in reasons[0]
+
+
 def test_build_key_reasons_picks_from_all_rows_by_strength() -> None:
     rows = [
         _row("B", "B약함", 0.2),

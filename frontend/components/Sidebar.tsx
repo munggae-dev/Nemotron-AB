@@ -29,13 +29,13 @@ export function Sidebar({ collapsed, onToggle, theme, onToggleTheme }: SidebarPr
     <aside className={`sidebar${collapsed ? " sidebar--collapsed" : ""}`} aria-expanded={!collapsed}>
       <div className="sidebar-head">
         {collapsed ? (
-          <Link href="/" className="sidebar-brand-mark" title="Nemotron A/B">
+          <Link href="/" className="sidebar-brand-mark" title="Nemotron-AB">
             N
           </Link>
         ) : (
           <div className="sidebar-brand">
-            <h1>Nemotron A/B</h1>
-            <p>A/B 평가</p>
+            <h1>Nemotron-AB</h1>
+            <p>단문·이미지 A/B 평가</p>
           </div>
         )}
         <button

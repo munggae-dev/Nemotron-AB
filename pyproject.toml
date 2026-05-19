@@ -50,9 +50,9 @@ postgres = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/your-org/nemotron-ab"
-Documentation = "https://github.com/your-org/nemotron-ab/tree/main/docs"
-Issues = "https://github.com/your-org/nemotron-ab/issues"
+Homepage = "https://github.com/munggae-dev/nemotron-ab"
+Documentation = "https://github.com/munggae-dev/nemotron-ab/tree/main/docs"
+Issues = "https://github.com/munggae-dev/nemotron-ab/issues"
 
 [tool.setuptools]
 packages = ["nemotron_ab", "nemotron_ab.services", "backend"]

@@ -72,15 +72,21 @@ def build_key_reasons(
     sa = float(overall["avg_score"]["A"])
     sb = float(overall["avg_score"]["B"])
     avg_conf = float(overall.get("avg_confidence") or 0.0)
+    wr_leader = "A" if wr_a >= wr_b else "B"
+    score_leader = "A" if sa >= sb else "B"
 
-    lines: list[str] = [
-        (
-            f"전체 표본 {n}건 기준 우세 비율 A {wr_a:.1%} / B {wr_b:.1%}, "
-            f"평균 가중 점수 A {sa:.2f} · B {sb:.2f}, "
-            f"표본 평균 신뢰도 지표(점수 차 기반) {avg_conf:.1%}. "
-            f"집계 규칙(가중 점수 우선·동점 시 승률)에 따라 최종 추천은 Variant {final_winner}입니다."
+    headline = (
+        f"전체 표본 {n}건: 페르소나별 승률 A {wr_a:.1%} / B {wr_b:.1%}, "
+        f"평균 가중 점수 A {sa:.2f} · B {sb:.2f}, "
+        f"표본 평균 신뢰도 지표(점수 차 기반) {avg_conf:.1%}. "
+        f"최종 추천은 평균 가중 점수 우선(동점 시 승률) 규칙으로 Variant {final_winner}입니다."
+    )
+    if wr_leader != score_leader:
+        headline += (
+            f" (승률은 {wr_leader}가 높지만 평균 점수는 {score_leader}가 높아, "
+            f"규칙상 {final_winner}가 추천됩니다.)"
         )
-    ]
+    lines: list[str] = [headline]
 
     bucket_bits: list[str] = []
     for b in AGE_BUCKETS:
@@ -91,13 +97,12 @@ def build_key_reasons(
         label = BUCKET_LABEL_KO.get(b, b)
         bwr_a = float(s["win_rate"]["A"])
         bwr_b = float(s["win_rate"]["B"])
-        dom = "A" if bwr_a >= bwr_b else "B"
-        dom_wr = bwr_a if dom == "A" else bwr_b
         bsa = float(s["avg_score"]["A"])
         bsb = float(s["avg_score"]["B"])
+        score_leader_b = "A" if bsa >= bsb else "B"
         bucket_bits.append(
-            f"{label} n={cnt} · {dom} 우세 {dom_wr:.0%}(승률 A {bwr_a:.0%}/B {bwr_b:.0%}, "
-            f"평균점수 A {bsa:.1f}/B {bsb:.1f})"
+            f"{label} n={cnt} · 승률 A {bwr_a:.0%}/B {bwr_b:.0%}, "
+            f"평균점수 A {bsa:.1f}/B {bsb:.1f} (점수상 {score_leader_b})"
         )
     if bucket_bits:
         lines.append("연령대별 요약: " + " / ".join(bucket_bits))

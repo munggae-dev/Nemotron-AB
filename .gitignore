@@ -23,6 +23,7 @@ nemotron_ab/app.sqlite3
 outputs/
 bench/
 persona_db/
+persona_db_kor_static_sample/
 deploy/
 
 # Environment files

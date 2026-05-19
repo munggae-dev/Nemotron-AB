@@ -80,6 +80,20 @@ npm run dev
 **브라우저 `ERR_CONNECTION_REFUSED`(포트 3000)** — Next 서버가 꺼진 상태입니다. `npm run dev` 가 떠 있는지 확인하세요.  
 **폼 제출만 실패·`8010 ERR_CONNECTION_RESET`** — `.env.local`에 **`NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8010` 이 남아 있으면**, 브라우저(PC의 8010)로 직접 붙습니다. 원격 작업만 포워딩한 경우 **그 줄을 삭제**(기본 프록시 사용)하고 `npm run dev` 재시작. API가 같은 머신의 다른 포트면 `API_INTERNAL_URL` 로 맞춥니다.
 
+#### `nemotron-mini` → Nemotron-AB 이름 변경 후 로컬 맞추기
+
+저장소·패키지 이름을 바꾼 뒤 로컬만 예전 설정이 남으면 아래 증상이 납니다.
+
+| 증상 | 조치 |
+|------|------|
+| `git push` / `Repository not found` | GitHub에서 저장소를 `nemotron-ab` 등으로 바꿨다면 원격 URL 갱신: `git remote set-url origin https://github.com/munggae-dev/nemotron-ab.git` |
+| `ModuleNotFoundError: No module named 'app'` | 프로젝트 **루트**에서 `pip install -e .` (또는 `venv` 활성화). 레거시 `from app.*` 는 루트의 `app/` 호환 패키지로 동작 |
+| `No module named 'nemotron_ab'` / `chromadb` | 시스템 Python 대신 `./venv/bin/python -m nemotron_ab.worker_main` 사용 |
+| UI만 API 연결 실패 | `frontend/.env.local` 에서 `NEXT_PUBLIC_API_BASE_URL` **주석 처리** 후 `npm run dev` 재시작 |
+| Docker 이전 이미지 | `docker compose build --no-cache` 후 `docker compose up` |
+
+작업 디렉터리 폴더명(`nemotron-mini`)은 Python 패키지명(`nemotron_ab`)과 무관합니다. **루트에서 venv + `pip install -e .`** 만 맞으면 됩니다.
+
 #### 포트포워딩 / 원격 개발 (SSH 등)
 
 - 기본 설정이면 브라우저는 **`http(s)://(포워딩한 호스트):3000/_nemotron_api/...`** 만 사용합니다. **3000만 열어도 됩니다.**
