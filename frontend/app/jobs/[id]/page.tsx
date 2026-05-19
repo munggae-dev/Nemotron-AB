@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { apiGet, apiPost, type JobProgress, type JobRow } from "@/lib/api";
+import { useParams, useRouter } from "next/navigation";
+import { ConfirmDeleteJobDialog } from "@/components/ConfirmDeleteJobDialog";
+import { apiDelete, apiGet, apiPost, type JobProgress, type JobRow } from "@/lib/api";
+import { isJobDeletable } from "@/lib/job-display";
 import { getApiBaseUrl } from "@/lib/api-base";
 
 type ReportJson = Record<string, unknown>;
@@ -195,6 +197,7 @@ function JobProgressPanel({ progress }: { progress: JobProgress }) {
 
 export default function JobDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const idStr = typeof params?.id === "string" ? params.id : null;
   const [refreshKey, setRefreshKey] = useState(0);
   const [job, setJob] = useState<JobRow | null>(null);
@@ -202,6 +205,9 @@ export default function JobDetailPage() {
   const [err, setErr] = useState<string | null>(null);
   const [reaggLoading, setReaggLoading] = useState(false);
   const [reaggErr, setReaggErr] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteErr, setDeleteErr] = useState<string | null>(null);
 
   const reload = useCallback(() => {
     setRefreshKey((k) => k + 1);
@@ -263,6 +269,21 @@ export default function JobDetailPage() {
       setReaggErr(e instanceof Error ? e.message : String(e));
     } finally {
       setReaggLoading(false);
+    }
+  }
+
+  async function onConfirmDelete() {
+    if (!idStr || !job) return;
+    setDeleteErr(null);
+    setDeleteLoading(true);
+    try {
+      await apiDelete<{ status: string; id: number }>(`/jobs/${idStr}`);
+      setDeleteOpen(false);
+      router.push("/jobs");
+    } catch (e: unknown) {
+      setDeleteErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDeleteLoading(false);
     }
   }
 
@@ -351,6 +372,20 @@ export default function JobDetailPage() {
                 </span>
                 다시 불러오기
               </button>
+              <button
+                type="button"
+                className="btn btn--danger"
+                disabled={reaggLoading || deleteLoading}
+                onClick={() => {
+                  setDeleteErr(null);
+                  setDeleteOpen(true);
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 18, verticalAlign: "middle", marginRight: 6 }}>
+                  delete
+                </span>
+                삭제
+              </button>
             </div>
           </div>
         </>
@@ -363,9 +398,23 @@ export default function JobDetailPage() {
             <h1 className="h1">작업 #{idStr ?? "…"}</h1>
           </div>
           {idStr ? (
-            <button type="button" className="btn secondary" onClick={() => reload()}>
-              새로고침
-            </button>
+            <div className="page-header-actions">
+              <button type="button" className="btn secondary" onClick={() => reload()}>
+                새로고침
+              </button>
+              {job && isJobDeletable(job.status) ? (
+                <button
+                  type="button"
+                  className="btn btn--danger"
+                  onClick={() => {
+                    setDeleteErr(null);
+                    setDeleteOpen(true);
+                  }}
+                >
+                  삭제
+                </button>
+              ) : null}
+            </div>
           ) : null}
         </div>
       )}
@@ -501,13 +550,17 @@ export default function JobDetailPage() {
               </div>
               <div className="report-confidence-heading">
                 <h4>평균 신뢰도</h4>
-                <details className="report-confidence-help">
-                  <summary className="report-confidence-help-trigger" aria-label="평균 신뢰도 설명">
+                <span className="field-help-wrap">
+                  <button
+                    type="button"
+                    className="field-help-btn"
+                    aria-label="평균 신뢰도 설명 보기"
+                  >
                     <span className="material-symbols-outlined" aria-hidden>
                       help
                     </span>
-                  </summary>
-                  <div className="report-confidence-explain">
+                  </button>
+                  <div className="field-help-tooltip field-help-tooltip--report" role="tooltip">
                     <p>
                       <strong>계산:</strong> 페르소나마다 A/B{" "}
                       <strong>가중 점수 차이</strong>(절댓값)를 0~100 점 스케일에서 최대 100으로 나눠 0~1로 둔 값을
@@ -518,12 +571,12 @@ export default function JobDetailPage() {
                       <strong>해석:</strong> 숫자가 클수록 많은 페르소나에서 두 안의 점수가 서로{" "}
                       <strong>덜 비슷하게</strong> 갈렸다는 뜻입니다. 최종 추천 Variant와 별개의 보조 참고치입니다.
                     </p>
-                    <p className="report-confidence-disclaimer">
+                    <p className="field-help-tooltip-note">
                       통계적 유의성(p값)·모형 불확실성을 의미하지 않습니다. 승률·평균 가중 점수·근거 문장과 함께
                       보시면 됩니다.
                     </p>
                   </div>
-                </details>
+                </span>
               </div>
             </div>
           </div>
@@ -548,8 +601,12 @@ export default function JobDetailPage() {
               {BUCKET_ORDER.map((bucket) => {
                 const s = summaryByBucket[bucket];
                 if (!s || typeof s.count !== "number" || s.count <= 0) return null;
-                const wrA = Number(s.win_rate?.A);
-                const wrB = Number(s.win_rate?.B);
+                let wrA = Number(s.win_rate?.A);
+                let wrB = Number(s.win_rate?.B);
+                if (Number.isFinite(wrA) && Number.isFinite(wrB) && (wrA > 1 || wrB > 1)) {
+                  wrA /= 100;
+                  wrB /= 100;
+                }
                 const winOk =
                   Number.isFinite(wrA) &&
                   Number.isFinite(wrB) &&
@@ -594,17 +651,18 @@ export default function JobDetailPage() {
                 return (
                   <div key={bucket} className="bucket-bar-row">
                     <strong>{label}</strong>
-                    <div className="bucket-bar-track">
-                      <div className="bucket-bar-seg bucket-bar-seg--a" style={{ width: `${normA}%` }} title={tipA}>
-                        A
+                    <div
+                      className="bucket-bar-track"
+                      style={{ gridTemplateColumns: `${normA}fr ${normB}fr` }}
+                    >
+                      <div className="bucket-bar-seg bucket-bar-seg--a" title={tipA}>
+                        {normA >= 12 ? "A" : null}
                       </div>
-                      <div className="bucket-bar-seg bucket-bar-seg--b" style={{ width: `${normB}%` }} title={tipB}>
-                        B
+                      <div className="bucket-bar-seg bucket-bar-seg--b" title={tipB}>
+                        {normB >= 12 ? "B" : null}
                       </div>
                     </div>
-                    <span className="mono" style={{ fontSize: 11 }}>
-                      n={s.count}
-                    </span>
+                    <span className="bucket-bar-meta">n={s.count}</span>
                   </div>
                 );
               })}
@@ -773,6 +831,13 @@ export default function JobDetailPage() {
           </details>
         </>
       )}
+      <ConfirmDeleteJobDialog
+        job={deleteOpen && job ? { id: job.id, title: job.title } : null}
+        loading={deleteLoading}
+        error={deleteErr}
+        onCancel={() => setDeleteOpen(false)}
+        onConfirm={() => void onConfirmDelete()}
+      />
     </>
   );
 }

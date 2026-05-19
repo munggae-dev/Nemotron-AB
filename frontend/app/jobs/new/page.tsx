@@ -17,10 +17,6 @@ function composeVariantText(v: VariantFields): string {
   return v.text.trim();
 }
 
-function variantHasVisual(variant: VariantFields): boolean {
-  return Boolean(variant.image_url.trim() || variant.image_asset_ref);
-}
-
 function imagePayloadFromVariant(v: VariantFields): { type: string; value: string } | undefined {
   const ref = v.image_asset_ref?.trim();
   if (ref) return { type: "asset_ref", value: ref };
@@ -29,37 +25,6 @@ function imagePayloadFromVariant(v: VariantFields): { type: string; value: strin
   return undefined;
 }
 
-function VariantPreview({ variant, emptyLabel }: { variant: VariantFields; emptyLabel: string }) {
-  const hasText = variant.text.trim().length > 0;
-  const hasVisual = variantHasVisual(variant);
-  if (!hasText && !hasVisual) {
-    return (
-      <div className="preview-canvas preview-canvas--empty">
-        <span className="material-symbols-outlined" aria-hidden>
-          edit_note
-        </span>
-        <p>{emptyLabel}</p>
-      </div>
-    );
-  }
-  return (
-    <div className="preview-canvas">
-      {variant.image_url.trim() ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img className="preview-variant-img" src={variant.image_url.trim()} alt="" />
-      ) : null}
-      {variant.image_asset_ref ? (
-        <div className="preview-asset-badge muted">
-          <span className="material-symbols-outlined" style={{ fontSize: "1rem", verticalAlign: "middle" }}>
-            cloud_upload
-          </span>{" "}
-          파일 업로드됨 (접수 후 미리보기 제공)
-        </div>
-      ) : null}
-      {hasText ? <p style={{ whiteSpace: "pre-wrap" }}>{variant.text}</p> : null}
-    </div>
-  );
-}
 
 const defaultVariant = (): VariantFields => ({
   text: "",
@@ -385,18 +350,7 @@ export default function NewJobPage() {
             안 A 와 안 B 를 텍스트·이미지로 구성합니다. 변형마다 텍스트만, 이미지만, 또는 둘 다 넣을 수 있습니다.
           </p>
         </div>
-        <div className="page-header-actions">
-          <button type="button" className="btn secondary" onClick={saveDraft} disabled={!draftLoaded}>
-            임시 저장
-          </button>
-          <button type="submit" className="btn" disabled={loading || !regions}>
-            {loading ? "등록 중…" : "검증 실행"}
-          </button>
-        </div>
       </div>
-
-      {err && <div className="msg err">{err}</div>}
-      {ok && <div className="msg ok">{ok}</div>}
 
       <div className="split-grid" style={{ marginBottom: 24 }}>
         <div className="split-panel">
@@ -465,14 +419,15 @@ export default function NewJobPage() {
                   }}
                 />
                 {uploadBusy === "a" ? <p className="muted small">업로드 중…</p> : null}
+                {form.variant_a.image_asset_ref ? (
+                  <p className="muted small">
+                    <span className="material-symbols-outlined" style={{ fontSize: "1rem", verticalAlign: "middle" }}>
+                      cloud_upload
+                    </span>{" "}
+                    이미지 파일이 첨부되었습니다.
+                  </p>
+                ) : null}
               </div>
-            </div>
-            <div className="preview-section">
-              <span className="preview-section-label">미리보기</span>
-              <VariantPreview
-                variant={form.variant_a}
-                emptyLabel="텍스트 또는 이미지를 입력하면 미리보기가 표시됩니다."
-              />
             </div>
           </div>
         </div>
@@ -543,14 +498,15 @@ export default function NewJobPage() {
                   }}
                 />
                 {uploadBusy === "b" ? <p className="muted small">업로드 중…</p> : null}
+                {form.variant_b.image_asset_ref ? (
+                  <p className="muted small">
+                    <span className="material-symbols-outlined" style={{ fontSize: "1rem", verticalAlign: "middle" }}>
+                      cloud_upload
+                    </span>{" "}
+                    이미지 파일이 첨부되었습니다.
+                  </p>
+                ) : null}
               </div>
-            </div>
-            <div className="preview-section">
-              <span className="preview-section-label">미리보기</span>
-              <VariantPreview
-                variant={form.variant_b}
-                emptyLabel="텍스트 또는 이미지를 입력하면 비교군 미리보기가 표시됩니다."
-              />
             </div>
           </div>
         </div>
@@ -840,8 +796,37 @@ export default function NewJobPage() {
             />
           </div>
         </div>
-        <label style={{ marginTop: 14 }}>버킷당 검색 수 (retrieval_k_per_bucket)</label>
+        <div className="field-label-with-help" style={{ marginTop: 14 }}>
+          <label htmlFor="retrieval-k-per-bucket">버킷당 검색 수</label>
+          <span className="field-help-wrap">
+            <button
+              type="button"
+              className="field-help-btn"
+              aria-label="버킷당 검색 수 설명 보기"
+            >
+              <span className="material-symbols-outlined" aria-hidden>
+                help
+              </span>
+            </button>
+            <div className="field-help-tooltip" role="tooltip">
+              <p>
+                <strong>버킷</strong>은 연령대 구간(20대·30대·40대·50대)입니다. 작업의 맥락·안 A·안 B
+                텍스트와 <strong>의미가 비슷한</strong> 페르소나를 벡터 DB에서 찾을 때, 연령대마다 최대 이
+                숫자만큼 후보를 가져옵니다.
+              </p>
+              <p>
+                후보를 모은 뒤 <strong>최대 페르소나</strong> 수만큼만 골라 LLM 평가에 씁니다. 값을 크게 하면
+                다양한 후보를 확보하기 쉽지만 검색·평가가 느려지고, 작게 하면 빠르지만 연령대별 후보가 부족할
+                수 있습니다.
+              </p>
+              <p className="field-help-tooltip-note">
+                기본 80 · 허용 20~500. API 필드명: <code className="mono">retrieval_k_per_bucket</code>
+              </p>
+            </div>
+          </span>
+        </div>
         <input
+          id="retrieval-k-per-bucket"
           type="number"
           min={20}
           max={500}
@@ -862,10 +847,15 @@ export default function NewJobPage() {
       </div>
 
       {form.evaluator !== "mock" ? (
-        <div className="card" style={{ marginBottom: 24 }}>
-          <p className="section-title" style={{ marginTop: 0 }}>
-            LLM 제공자 (OpenAI-호환)
-          </p>
+        <details className="card collapsible-advanced-card">
+          <summary className="collapsible-advanced-summary">
+            <span className="tag-advanced">고급</span>
+            <span className="collapsible-advanced-title">LLM 제공자 (OpenAI-호환)</span>
+            <span className="material-symbols-outlined collapsible-advanced-chevron" aria-hidden>
+              expand_more
+            </span>
+          </summary>
+          <div className="collapsible-advanced-body">
           <p className="muted small" style={{ marginTop: 0 }}>
             Ollama, OpenAI, OpenRouter, Together, vLLM, llama.cpp 서버 등 OpenAI-호환 엔드포인트를 모두 지원합니다.
             <br />
@@ -950,8 +940,26 @@ export default function NewJobPage() {
               <small className="hint">text_a + text_b + context 누적 길이가 이 값을 넘으면 거절.</small>
             </div>
           </div>
-        </div>
+          </div>
+        </details>
       ) : null}
+
+      <div className="form-submit-footer" aria-live="polite">
+        {(err || ok) && (
+          <div className="form-submit-footer-messages">
+            {err ? <div className="msg err">{err}</div> : null}
+            {ok ? <div className="msg ok">{ok}</div> : null}
+          </div>
+        )}
+        <div className="form-submit-footer-actions">
+          <button type="button" className="btn secondary" onClick={saveDraft} disabled={!draftLoaded}>
+            임시 저장
+          </button>
+          <button type="submit" className="btn" disabled={loading || !regions}>
+            {loading ? "등록 중…" : "검증 실행"}
+          </button>
+        </div>
+      </div>
     </form>
   );
 }

@@ -112,8 +112,15 @@ def add_device_arg(parser: argparse.ArgumentParser, *names: str, default: str = 
 def prepare_sentence_transformer(model, device: str, fp16: Fp16Mode, max_seq_length: int | None) -> bool:
     """max_seq_length·fp16 적용 후 fp16 사용 여부 반환."""
     if max_seq_length and max_seq_length > 0:
-        model.max_seq_length = max_seq_length
+        try:
+            model.max_seq_length = max_seq_length
+        except (AttributeError, TypeError):
+            # model2vec StaticEmbedding 등은 max_seq_length setter 미지원
+            pass
     use_fp16 = should_use_fp16(device, fp16)
     if use_fp16:
-        model.half()
+        try:
+            model.half()
+        except (AttributeError, TypeError, RuntimeError):
+            use_fp16 = False
     return use_fp16

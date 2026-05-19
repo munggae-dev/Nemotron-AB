@@ -139,7 +139,7 @@ export DATABASE_URL='postgresql+psycopg://nemotron:nemotron@127.0.0.1:5432/nemot
 
 # 4) 평소처럼 API/워커 실행
 uvicorn backend.main:app --reload --port 8010 &
-python -m nemotron_ab.worker_main --poll-interval-sec 2 --task-parallelism 2 &
+python -m nemotron_ab.worker_main --poll-interval-sec 2 --task-parallelism 4 &
 ```
 
 호환 검증: `pytest -m needs_postgres` (DATABASE_URL 이 PG 이고 psycopg 가 설치된 경우에만 동작).
@@ -237,6 +237,58 @@ python scripts/download_data.py
 ```
 
 `persona_db/manifest.json` 에 모든 파일의 SHA-256 이 들어있어 무결성 검증이 가능하고, 임베딩 텍스트 스키마/모델/차원 등 재현에 필요한 정보가 박혀 있습니다. **검색 시에는 동일 모델·동일 정규화·동일 텍스트 스키마를 써야** 의미가 보존됩니다.
+
+### 임베딩 모델 선택 (벤치마크 참고, 2026-05)
+
+**이미 `BAAI/bge-m3` 로 `persona_db` 를 빌드했거나 Hub DB 를 받았다면 그대로 쓰는 것을 권장합니다.** 후보 대안으로 [kekeappa/kor-static-embedding-512](https://huggingface.co/kekeappa/kor-static-embedding-512)(512d, static·~68MB)를 같은 페르소나 임베딩 텍스트 스키마로 비교했으나, **페르소나 검색 품질은 bge-m3가 같거나 우세**하고 kor-static은 **인코딩·빌드 속도**에서만 크게 유리했습니다. 차원이 달라(1024 vs 512) **모델만 바꿔 기존 DB에 쿼리할 수 없으며**, 전환 시 전체 재빌드·`manifest.json` 갱신이 필요합니다.
+
+동일 `target_personas_20_59.jsonl` 샘플·Chroma 메모리 인덱스 (`scripts/benchmark_embedding_models.py`). 상세 JSON은 `outputs/benchmark_embeddings/` 에 저장.
+
+**CUDA (NVIDIA GPU)**
+
+| 지표 | BAAI/bge-m3 | kor-static-512 | 비고 |
+|------|-------------|----------------|------|
+| 차원 | 1024 | 512 | |
+| metadata hit@5 (연령·성별 쿼리 4종) | 0.80 (10k) / 0.75 (20k) | 0.70 (10k) / 0.80 (20k) | top-5 정합 |
+| metadata hit@10 | **0.90** / **0.83** | 0.65 / 0.68 | top-10 정합 |
+| self-retrieval@10 | **1.00** | 0.99~1.00 | 동일 문서 재검색 |
+| 쿼리 인코딩 | ~17–20 ms | **~0.7–1.2 ms** | |
+| 인덱싱 (rows/s) | ~190 | **~11k–13k** | bge-m3 전체 빌드 ~90–120분 |
+
+**CPU (저사양 서버·Mac CPU 가정, 샘플 1k·`encode-batch-size=32`)**
+
+| 지표 | BAAI/bge-m3 | kor-static-512 | 비고 |
+|------|-------------|----------------|------|
+| metadata hit@5 | **0.90** | 0.35 | 소표본·품질 격차 더 큼 |
+| metadata hit@10 | **0.83** | 0.33 | |
+| 쿼리 인코딩 | ~87 ms | **~0.6 ms** | job당 검색 1회 기준 체감 차 큼 |
+| 인덱싱 (rows/s) | **~2** | **~8k** | CPU에서 bge-m3 전량 빌드는 비현실적 |
+
+Mac(Apple Silicon)에서는 벤치 시 `--device mps` 로 돌리면 CPU보다 빠르지만, **품질 순위는 CUDA와 동일하게 bge-m3 유지 권장**입니다. Hub에서 bge-m3 `persona_db` 를 받아 쓰면 Mac에서는 **빌드 없이 쿼리 인코딩만** 보면 되며, 그 경우에도 bge-m3가 쿼리당 ~수십 ms 수준으로 kor-static보다 느립니다(위 CPU 표 참고).
+
+**정리**
+
+- **품질 우선(A/B 페르소나 검색)** → `BAAI/bge-m3` 유지 (현재 기본값). **이미 빌드·Hub DB 있으면 Mac에서도 그대로 사용.**
+- **Mac에서 로컬 전량 빌드** → kor-static이 속도·메모리 유리하나 검색 품질은 더 불리했음. 실사용은 **Hub bge-m3 DB + `RETRIEVAL_DEVICE=mps`(또는 `cpu`)** 조합이 현실적.
+- kor-static 전환: `build_vectordb.py --model-name kekeappa/kor-static-embedding-512` (StaticEmbedding은 `max_seq_length` 미지원 — `nemotron_ab/torch_device.py` 에서 처리).
+
+재현·추가 비교:
+
+```bash
+# GPU (기본)
+./venv/bin/python scripts/benchmark_embedding_models.py \
+  --sample-size 10000 \
+  --device cuda
+
+# CPU / 저사양·Mac CPU 가정 (샘플·배치 축소)
+./venv/bin/python scripts/benchmark_embedding_models.py \
+  --sample-size 1000 --device cpu --encode-batch-size 32 \
+  --output outputs/benchmark_embeddings/summary_cpu_1k.json
+
+# Apple Silicon
+./venv/bin/python scripts/benchmark_embedding_models.py \
+  --sample-size 2000 --device mps --encode-batch-size 64
+```
 
 ## 벡터DB + Ollama 실평가
 

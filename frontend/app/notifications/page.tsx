@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { BrowserNotificationSettings } from "@/components/BrowserNotificationSettings";
 import { apiGet, apiPatch, type NotificationRow } from "@/lib/api";
 
 export default function NotificationsPage() {
@@ -55,6 +56,8 @@ export default function NotificationsPage() {
           새로고침
         </button>
       </div>
+      <BrowserNotificationSettings />
+
       {err && <div className="msg err">{err}</div>}
       {rows.length === 0 && !err && <p style={{ color: "var(--on-surface-variant)" }}>알림이 없습니다.</p>}
       <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>

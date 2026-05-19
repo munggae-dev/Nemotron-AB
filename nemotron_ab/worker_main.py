@@ -26,12 +26,12 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="DB URL (sqlite:///… 또는 postgresql+psycopg://…). 환경변수 DATABASE_URL 보다 우선.",
     )
-    parser.add_argument("--poll-interval-sec", type=float, default=2.0)
-    parser.add_argument("--max-jobs-per-tick", type=int, default=1)
+    parser.add_argument("--poll-interval-sec", type=float, default=1.0, help="틱 간격 1초 ~ 5초")
+    parser.add_argument("--max-jobs-per-tick", type=int, default=10 ,help="한 번의 틱에 처리할 작업 수 1 ~ 40")
     parser.add_argument(
         "--task-parallelism",
         type=int,
-        default=1,
+        default=2,
         help="job_tasks 처리 시 동시 스레드 수(1~8). Ollama 병렬에 맞춰 eval_concurrency와 비슷하게 설정.",
     )
     parser.add_argument("--once", action="store_true", help="한 번만 실행하고 종료")

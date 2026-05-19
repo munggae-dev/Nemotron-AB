@@ -46,6 +46,15 @@ export async function apiPatch<T>(path: string): Promise<T> {
   return r.json() as Promise<T>;
 }
 
+export async function apiDelete<T>(path: string): Promise<T> {
+  const r = await fetch(`${getApiBaseUrl()}${path}`, { method: "DELETE" });
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(t || r.statusText);
+  }
+  return r.json() as Promise<T>;
+}
+
 /** 원본 payload 그대로 새 job으로 복제 등록. title만 옵션으로 덮어쓸 수 있음. */
 export async function cloneJob(
   jobId: number,
@@ -149,6 +158,13 @@ export type JobRow = {
 export type QueueStats = {
   total: number;
   by_status: Record<string, number>;
+};
+
+export type JobsListPage = {
+  items: JobRow[];
+  total: number;
+  limit: number;
+  offset: number;
 };
 
 export type NotificationRow = {

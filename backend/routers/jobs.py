@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 
 from backend.deps import get_conn
@@ -19,7 +19,7 @@ from backend.services.job_validation import (
 )
 from nemotron_ab import db
 from nemotron_ab.campaign_assets import resolve_image_file_path, save_upload_to_staging
-from nemotron_ab.job_tasks_worker import reaggregate_completed_job, try_finalize_job
+from nemotron_ab.job_tasks_worker import purge_job_output_dir, reaggregate_completed_job, try_finalize_job
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -93,30 +93,44 @@ async def create_job(body: JobCreate, background_tasks: BackgroundTasks) -> dict
     return {"id": job_id}
 
 
+def _rows_to_job_dicts(rows: list[Any], *, omit_payload: bool) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        d = dict(r)
+        if omit_payload:
+            d.pop("payload_json", None)
+        d["report_summary"] = parse_summary_json(d.pop("summary_json", None))
+        out.append(d)
+    return out
+
+
 @router.get("")
 def list_jobs(
-    limit: int = 200,
+    limit: int = Query(200, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     status: str | None = None,
     q: str | None = None,
     omit_payload: bool = False,
-) -> list[dict[str, Any]]:
-    """작업 목록. `omit_payload=true`면 payload_json을 빼고 `report_summary`만 조합합니다(대역폭 절약)."""
+    include_total: bool = False,
+) -> list[dict[str, Any]] | dict[str, Any]:
+    """작업 목록. `omit_payload=true`면 payload_json을 빼고 `report_summary`만 조합합니다(대역폭 절약).
+
+    `include_total=true`이면 `{ items, total, limit, offset }` 형태로 반환합니다(페이지네이션 UI용).
+    """
     with get_conn() as conn:
-        if omit_payload:
-            rows = db.fetch_jobs_extended(conn, limit=limit, status=status, q=q, include_payload=False)
-            out: list[dict[str, Any]] = []
-            for r in rows:
-                d = dict(r)
-                d["report_summary"] = parse_summary_json(d.pop("summary_json", None))
-                out.append(d)
-            return out
-        rows = db.fetch_jobs_extended(conn, limit=limit, status=status, q=q, include_payload=True)
-        out2: list[dict[str, Any]] = []
-        for r in rows:
-            d = dict(r)
-            d["report_summary"] = parse_summary_json(d.pop("summary_json", None))
-            out2.append(d)
-        return out2
+        rows = db.fetch_jobs_extended(
+            conn,
+            limit=limit,
+            offset=offset,
+            status=status,
+            q=q,
+            include_payload=not omit_payload,
+        )
+        items = _rows_to_job_dicts(rows, omit_payload=omit_payload)
+        if not include_total:
+            return items
+        total = db.count_jobs(conn, status=status, q=q)
+        return {"items": items, "total": total, "limit": limit, "offset": offset}
 
 
 @router.get("/{job_id}")
@@ -154,6 +168,18 @@ def get_job(job_id: int) -> dict[str, Any]:
             d["progress"] = prog
         d["tokens"] = db.job_token_totals(conn, job_id)
         return d
+
+
+@router.delete("/{job_id}", status_code=200)
+def delete_job_endpoint(job_id: int) -> dict[str, Any]:
+    """완료·실패 작업을 큐·DB에서 영구 삭제합니다(복구 불가)."""
+    with get_conn() as conn:
+        try:
+            db.delete_job(conn, job_id)
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+    purge_job_output_dir(job_id)
+    return {"status": "ok", "id": job_id}
 
 
 @router.post("/{job_id}/report/reaggregate", status_code=200)

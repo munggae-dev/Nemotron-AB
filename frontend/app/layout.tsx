@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Inter, JetBrains_Mono } from "next/font/google";
-import { Sidebar } from "@/components/Sidebar";
-import { TopBar } from "@/components/TopBar";
+import { AppShell } from "@/components/AppShell";
 import "./globals.css";
 
 const inter = Inter({
@@ -22,15 +21,16 @@ export const metadata: Metadata = {
   description: "Nemotron 페르소나 기반 단문·이미지 A/B 평가",
 };
 
+const themeInitScript = `(function(){try{var t=localStorage.getItem("nemotron-theme");var d=t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(d)document.documentElement.setAttribute("data-theme","dark");}catch(e){}})();`;
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="ko" className={`${inter.variable} ${jetbrainsMono.variable}`}>
-      <body className={`${inter.className} app-root`}>
-        <Sidebar />
-        <TopBar />
-        <div className="main-area">
-          <div className="main-inner">{children}</div>
-        </div>
+    <html lang="ko" className={`${inter.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
+      <body className={inter.className}>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

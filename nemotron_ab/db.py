@@ -221,22 +221,41 @@ def fetch_jobs(conn: ConnectionLike, limit: int = 100) -> list[Any]:
     return cur.fetchall()
 
 
-def fetch_jobs_extended(
-    conn: ConnectionLike,
-    limit: int = 100,
-    status: str | None = None,
-    q: str | None = None,
-    include_payload: bool = False,
-) -> list[Any]:
-    """작업 목록 + job_results.summary_json (있으면)."""
+def _jobs_list_filters(status: str | None, q: str | None) -> tuple[list[str], list[Any]]:
     clauses: list[str] = []
     params: list[Any] = []
     if status:
         clauses.append("j.status = ?")
         params.append(status)
     if q and q.strip():
-        clauses.append("j.title LIKE ?")
-        params.append(f"%{q.strip()}%")
+        qst = q.strip()
+        if qst.isdigit():
+            clauses.append("(j.title LIKE ? OR j.id = ?)")
+            params.extend([f"%{qst}%", int(qst)])
+        else:
+            clauses.append("j.title LIKE ?")
+            params.append(f"%{qst}%")
+    return clauses, params
+
+
+def count_jobs(conn: ConnectionLike, status: str | None = None, q: str | None = None) -> int:
+    clauses, params = _jobs_list_filters(status, q)
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+    cur = conn.execute(f"SELECT COUNT(*) AS c FROM jobs j{where}", params)
+    row = cur.fetchone()
+    return int(row["c"]) if row is not None else 0
+
+
+def fetch_jobs_extended(
+    conn: ConnectionLike,
+    limit: int = 100,
+    offset: int = 0,
+    status: str | None = None,
+    q: str | None = None,
+    include_payload: bool = False,
+) -> list[Any]:
+    """작업 목록 + job_results.summary_json (있으면)."""
+    clauses, params = _jobs_list_filters(status, q)
     where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
     base_cols = "j.id, j.status, j.title, j.created_at, j.started_at, j.finished_at, j.error_message"
     if include_payload:
@@ -247,9 +266,9 @@ def fetch_jobs_extended(
         LEFT JOIN job_results jr ON jr.job_id = j.id
         {where}
         ORDER BY j.id DESC
-        LIMIT ?
+        LIMIT ? OFFSET ?
     """
-    params.append(limit)
+    params.extend([limit, offset])
     cur = conn.execute(sql, params)
     return cur.fetchall()
 
@@ -388,6 +407,30 @@ def fetch_job(conn: ConnectionLike, job_id: int) -> Any | None:
     """단일 job 행 전체 조회. status/payload_json/started_at 등 모든 컬럼 포함."""
     cur = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,))
     return cur.fetchone()
+
+
+_DELETABLE_JOB_STATUSES = frozenset({"failed", "completed"})
+
+
+def delete_job(conn: ConnectionLike, job_id: int) -> None:
+    """완료·실패 작업과 연관 행을 DB에서 제거합니다. 출력 디렉터리는 호출측에서 정리."""
+    job = fetch_job(conn, job_id)
+    if job is None:
+        raise ValueError("job not found")
+    status = str(job["status"])
+    if status not in _DELETABLE_JOB_STATUSES:
+        raise ValueError("완료 또는 실패 상태의 작업만 삭제할 수 있습니다")
+
+    conn.execute("DELETE FROM job_tasks WHERE job_id=?", (job_id,))
+    conn.execute("DELETE FROM job_results WHERE job_id=?", (job_id,))
+    conn.execute("DELETE FROM notifications WHERE job_id=?", (job_id,))
+    cur = conn.execute(
+        "DELETE FROM jobs WHERE id=? AND status IN ('failed', 'completed')",
+        (job_id,),
+    )
+    if int(cur.rowcount or 0) == 0:
+        raise ValueError("삭제에 실패했습니다")
+    conn.commit()
 
 
 def transition_job_status(

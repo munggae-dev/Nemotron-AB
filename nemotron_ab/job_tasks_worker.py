@@ -32,6 +32,13 @@ def _partial_path(job_id: int) -> Path:
     return _job_dir(job_id) / "partial.jsonl"
 
 
+def purge_job_output_dir(job_id: int) -> None:
+    """작업별 outputs/jobs/job_{id} 디렉터리를 제거합니다."""
+    d = _job_dir(job_id)
+    if d.is_dir():
+        shutil.rmtree(d, ignore_errors=True)
+
+
 def _finalize_llm_personas_and_tasks(conn, job_id: int, payload: dict[str, Any]) -> None:
     """상태가 preparing인 작업만: Chroma 검색 → llm_score 태스크 적재 → status=pending."""
     from nemotron_ab.services.validator_runner import _retrieve_filtered_personas

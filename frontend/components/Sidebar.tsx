@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { Theme } from "@/lib/theme";
 
 const items = [
   { href: "/", label: "홈", icon: "home" },
@@ -11,14 +12,42 @@ const items = [
   { href: "/reports", label: "분석·보고서", icon: "analytics" },
 ] as const;
 
-export function Sidebar() {
+type SidebarProps = {
+  collapsed: boolean;
+  onToggle: () => void;
+  theme: Theme;
+  onToggleTheme: () => void;
+};
+
+export function Sidebar({ collapsed, onToggle, theme, onToggleTheme }: SidebarProps) {
+  const isDark = theme === "dark";
+  const themeLabel = isDark ? "라이트 모드" : "다크 모드";
+  const themeIcon = isDark ? "light_mode" : "dark_mode";
   const pathname = usePathname();
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-brand">
-        <h1>Nemotron A/B</h1>
-        <p>A/B 평가</p>
+    <aside className={`sidebar${collapsed ? " sidebar--collapsed" : ""}`} aria-expanded={!collapsed}>
+      <div className="sidebar-head">
+        {collapsed ? (
+          <Link href="/" className="sidebar-brand-mark" title="Nemotron A/B">
+            N
+          </Link>
+        ) : (
+          <div className="sidebar-brand">
+            <h1>Nemotron A/B</h1>
+            <p>A/B 평가</p>
+          </div>
+        )}
+        <button
+          type="button"
+          className="sidebar-toggle"
+          onClick={onToggle}
+          aria-label={collapsed ? "사이드바 펼치기" : "사이드바 접기"}
+        >
+          <span className="material-symbols-outlined" aria-hidden>
+            {collapsed ? "chevron_right" : "chevron_left"}
+          </span>
+        </button>
       </div>
       <nav className="sidebar-nav" aria-label="주 메뉴">
         {items.map(({ href, label, icon }) => {
@@ -29,21 +58,38 @@ export function Sidebar() {
             active = pathname === "/jobs" || /^\/jobs\/\d+$/.test(pathname);
           else active = pathname === href || pathname.startsWith(href + "/");
           return (
-            <Link key={href} href={href} className={`sidebar-link${active ? " active" : ""}`}>
+            <Link
+              key={href}
+              href={href}
+              className={`sidebar-link${active ? " active" : ""}`}
+              title={collapsed ? label : undefined}
+            >
               <span className="material-symbols-outlined" aria-hidden>
                 {icon}
               </span>
-              {label}
+              <span className="sidebar-link-label">{label}</span>
             </Link>
           );
         })}
       </nav>
       <div className="sidebar-footer">
-        <span className="sidebar-link" style={{ cursor: "default", opacity: 0.7 }}>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isDark}
+          aria-label={themeLabel}
+          className="sidebar-link sidebar-theme-toggle"
+          title={collapsed ? themeLabel : undefined}
+          onClick={onToggleTheme}
+        >
           <span className="material-symbols-outlined" aria-hidden>
-            info
+            {themeIcon}
           </span>
-          FastAPI + 워커
+          <span className="sidebar-link-label">{themeLabel}</span>
+          <span className={`sidebar-theme-switch${isDark ? " is-on" : ""}`} aria-hidden />
+        </button>
+        <span className="sidebar-credit" title="Renew with LLM">
+          Renew with LLM
         </span>
       </div>
     </aside>
