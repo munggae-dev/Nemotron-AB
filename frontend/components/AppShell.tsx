@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { BrowserNotificationListener } from "@/components/BrowserNotificationListener";
+import { DemoBanner } from "@/components/DemoBanner";
 import { Sidebar } from "@/components/Sidebar";
 import { TopBar } from "@/components/TopBar";
 import { applyTheme, type Theme } from "@/lib/theme";
@@ -50,6 +51,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <Sidebar collapsed={collapsed} onToggle={toggleSidebar} theme={theme} onToggleTheme={toggleTheme} />
       <TopBar />
       <div className="main-area">
+        <DemoBanner />
         <div className="main-inner">{children}</div>
       </div>
     </div>

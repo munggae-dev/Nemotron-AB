@@ -17,7 +17,7 @@ import {
   type TokenUsage,
 } from "@/lib/api";
 import { isJobDeletable } from "@/lib/job-display";
-import { getApiBaseUrl } from "@/lib/api-base";
+import { jobVariantImageUrl } from "@/lib/job-images";
 
 type ReportJson = Record<string, unknown>;
 
@@ -1216,7 +1216,7 @@ export default function JobDetailPage() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       className="job-variant-thumb"
-                      src={`${getApiBaseUrl()}/jobs/${idStr}/images/a`}
+                      src={jobVariantImageUrl(idStr, "a")}
                       alt=""
                     />
                   ) : null}
@@ -1228,7 +1228,7 @@ export default function JobDetailPage() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       className="job-variant-thumb"
-                      src={`${getApiBaseUrl()}/jobs/${idStr}/images/b`}
+                      src={jobVariantImageUrl(idStr, "b")}
                       alt=""
                     />
                   ) : null}

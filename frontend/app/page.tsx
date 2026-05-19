@@ -3,8 +3,6 @@ import { JobsListPanel } from "@/components/JobsListPanel";
 import type { JobRow, QueueStats } from "@/lib/api";
 import { serverApiGet } from "@/lib/server-api";
 
-export const dynamic = "force-dynamic";
-
 export default async function HomePage() {
   let jobs: JobRow[] = [];
   let stats: QueueStats | null = null;

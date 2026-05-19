@@ -9,7 +9,7 @@ import {
   apiUploadJobAsset,
   type JobRow,
 } from "@/lib/api";
-import { getApiBaseUrl } from "@/lib/api-base";
+import { jobVariantImageUrl } from "@/lib/job-images";
 
 const DRAFT_STORAGE_KEY = "nemotron-new-job-draft-v9";
 
@@ -72,8 +72,8 @@ function variantFieldsFromPayloadImage(ref: Record<string, unknown> | null): Par
   return {};
 }
 
-function jobVariantImageUrl(jobId: number, variant: VariantSide): string {
-  return `${getApiBaseUrl()}/jobs/${jobId}/images/${variant}`;
+function jobImagePreviewUrl(jobId: number, variant: VariantSide): string {
+  return jobVariantImageUrl(jobId, variant);
 }
 
 /** 나이 필터와 겹치는 연령 버킷 수 (20·30·40·50대). */

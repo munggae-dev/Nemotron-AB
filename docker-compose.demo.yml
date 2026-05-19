@@ -1,0 +1,14 @@
+# UI 데모만 단독 실행 (api·worker·DB·Ollama 불필요)
+#
+#   docker compose -f docker-compose.demo.yml up --build
+#   → http://localhost:3000
+#
+services:
+  web-demo:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.demo
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_DEMO_MODE: "1"

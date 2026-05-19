@@ -4,19 +4,31 @@ import type { NextConfig } from "next";
 const internalApi =
   process.env.API_INTERNAL_URL?.replace(/\/$/, "") || "http://127.0.0.1:8010";
 
+const isDemo = process.env.NEXT_PUBLIC_DEMO_MODE === "1" || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+const isStaticDemo =
+  process.env.NEXT_PUBLIC_DEMO_STATIC === "1" || process.env.NEXT_PUBLIC_DEMO_STATIC === "true";
+
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH?.replace(/\/$/, "") ?? "";
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  output: "standalone",
-  async rewrites() {
-    // 브라우저는 기본적으로 이 경로만 사용(동일 Origin). 포트포워딩 3000만 열어도 API 연결 가능.
-    // NEXT_PUBLIC_API_BASE_URL 을 직접 쓰면 이 프록시는 요청에 사용되지 않음.
+  output: isStaticDemo ? "export" : "standalone",
+  basePath: basePath || undefined,
+  assetPrefix: basePath ? `${basePath}/` : undefined,
+  trailingSlash: isStaticDemo ? true : undefined,
+  images: { unoptimized: isStaticDemo },
+};
+
+if (!isStaticDemo) {
+  nextConfig.rewrites = async () => {
+    if (isDemo) return [];
     return [
       {
         source: "/_nemotron_api/:path*",
         destination: `${internalApi}/:path*`,
       },
     ];
-  },
-};
+  };
+}
 
 export default nextConfig;

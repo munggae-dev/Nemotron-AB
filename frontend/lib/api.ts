@@ -1,7 +1,7 @@
-import { getApiBaseUrl } from "./api-base";
+import { apiFetch } from "./api-fetch";
 
 export async function apiGet<T>(path: string): Promise<T> {
-  const r = await fetch(`${getApiBaseUrl()}${path}`, { cache: "no-store" });
+  const r = await apiFetch(path);
   if (!r.ok) {
     const t = await r.text();
     throw new Error(t || r.statusText);
@@ -10,7 +10,7 @@ export async function apiGet<T>(path: string): Promise<T> {
 }
 
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
-  const r = await fetch(`${getApiBaseUrl()}${path}`, {
+  const r = await apiFetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -26,7 +26,7 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
 export async function apiUploadJobAsset(file: File): Promise<{ asset_ref: string }> {
   const fd = new FormData();
   fd.append("file", file);
-  const r = await fetch(`${getApiBaseUrl()}/jobs/assets`, {
+  const r = await apiFetch("/jobs/assets", {
     method: "POST",
     body: fd,
   });
@@ -42,7 +42,7 @@ export async function apiImportJobAssetFromJob(
   jobId: number,
   variant: "a" | "b",
 ): Promise<{ asset_ref: string }> {
-  const r = await fetch(`${getApiBaseUrl()}/jobs/${jobId}/images/${variant}`, { cache: "no-store" });
+  const r = await apiFetch(`/jobs/${jobId}/images/${variant}`);
   if (!r.ok) {
     const t = await r.text();
     throw new Error(t || `이미지 불러오기 실패 (${variant})`);
@@ -55,7 +55,7 @@ export async function apiImportJobAssetFromJob(
 }
 
 export async function apiPatch<T>(path: string): Promise<T> {
-  const r = await fetch(`${getApiBaseUrl()}${path}`, { method: "PATCH" });
+  const r = await apiFetch(path, { method: "PATCH" });
   if (!r.ok) {
     const t = await r.text();
     throw new Error(t || r.statusText);
@@ -64,7 +64,7 @@ export async function apiPatch<T>(path: string): Promise<T> {
 }
 
 export async function apiDelete<T>(path: string): Promise<T> {
-  const r = await fetch(`${getApiBaseUrl()}${path}`, { method: "DELETE" });
+  const r = await apiFetch(path, { method: "DELETE" });
   if (!r.ok) {
     const t = await r.text();
     throw new Error(t || r.statusText);

@@ -4,8 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0 --port 3000",
+    "dev:demo": "NEXT_PUBLIC_DEMO_MODE=1 next dev --hostname 0.0.0.0 --port 3000",
     "build": "next build",
+    "build:demo": "NEXT_PUBLIC_DEMO_MODE=1 next build",
+    "build:demo:static": "node scripts/build-static-demo.mjs",
     "start": "next start --hostname 0.0.0.0 --port 3000",
+    "start:demo": "NEXT_PUBLIC_DEMO_MODE=1 next start --hostname 0.0.0.0 --port 3000",
     "lint": "next lint"
   },
   "dependencies": {

@@ -27,6 +27,7 @@
 - [CONTRIBUTING](CONTRIBUTING.md) — 개발 환경, 코드 스타일, 커밋·PR 규약
 - [데이터 디렉터리](data/README.md) — 대용량 데이터셋·벡터 DB 생성 가이드
 - [CHANGELOG](CHANGELOG.md) — 변경 이력
+- [UI 데모 단독 배포](docs/demo-deploy.md) — 목업 전용 Docker·Node·PaaS
 
 ## 환경 요구사항
 
@@ -76,6 +77,37 @@ npm run dev
 ```
 
 브라우저에서 `http://localhost:3000` — 등록 / 큐 / 알림 / 보고서(작업 상세) 화면.
+
+**UI 데모만 (백엔드·워커 없이)** — 목업 API로 대시보드·작업·리포트 화면을 미리볼 때:
+
+```bash
+cd frontend
+npm ci
+npm run dev:demo
+```
+
+`NEXT_PUBLIC_DEMO_MODE=1` 이 켜지며 `/nemotron-mock-api` Route Handler가 샘플 작업·리포트·알림을 제공합니다. 새 작업은 약 5초 후 자동 완료됩니다. 완료 리포트 예시: 작업 **#901**.
+
+**데모 정적 호스팅 (GitHub Pages 등, Node 불필요)** — 시연·문서용 UI만 올릴 때:
+
+```bash
+cd frontend
+npm ci
+npm run build:demo:static
+# 프로젝트 페이지( /저장소이름/ )인 경우:
+# NEXT_PUBLIC_BASE_PATH=/nemotron-ab npm run build:demo:static
+# 산출물: frontend/out/ → Pages·S3·Cloudflare Pages에 업로드
+```
+
+로컬 확인: `npx serve frontend/out -l 3456` · 샘플 리포트 **작업 #901**
+
+**데모 Docker (Node 1컨테이너)** — API·워커 이미지 없이:
+
+```bash
+docker compose -f docker-compose.demo.yml up --build
+```
+
+배포·Pages Actions·제한 사항: [docs/demo-deploy.md](docs/demo-deploy.md)
 
 **브라우저 `ERR_CONNECTION_REFUSED`(포트 3000)** — Next 서버가 꺼진 상태입니다. `npm run dev` 가 떠 있는지 확인하세요.  
 **폼 제출만 실패·`8010 ERR_CONNECTION_RESET`** — `.env.local`에 **`NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8010` 이 남아 있으면**, 브라우저(PC의 8010)로 직접 붙습니다. 원격 작업만 포워딩한 경우 **그 줄을 삭제**(기본 프록시 사용)하고 `npm run dev` 재시작. API가 같은 머신의 다른 포트면 `API_INTERNAL_URL` 로 맞춥니다.
