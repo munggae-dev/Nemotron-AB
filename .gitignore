@@ -25,6 +25,7 @@ frontend/out/
 frontend/.nemotron-mock-api.off/
 bench/
 persona_db/
+models/
 persona_db_kor_static_sample/
 deploy/
 

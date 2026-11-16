@@ -12,6 +12,11 @@ from backend.services.job_validation import optional_image_payload
 def payload_from_create(body: JobCreate) -> dict[str, Any]:
     img_a = optional_image_payload(body.image_a)
     img_b = optional_image_payload(body.image_b)
+    if body.evaluator == "laya":
+        if img_a or img_b:
+            raise HTTPException(400, "LAYA multilingual은 텍스트 평가용입니다. 이미지 평가는 OpenAI-호환 평가기를 선택하세요.")
+        if not body.use_llm_task_queue:
+            raise HTTPException(400, "LAYA 평가는 페르소나별 평가 태스크 큐를 사용해야 합니다.")
     text_a = body.text_a.strip()
     text_b = body.text_b.strip()
     context = body.context.strip()
@@ -39,8 +44,8 @@ def payload_from_create(body: JobCreate) -> dict[str, Any]:
         "context": context,
         "profile": body.profile,
         "evaluator": body.evaluator,
-        "llm_base_url": body.llm_base_url.strip().rstrip("/"),
-        "llm_model": body.llm_model.strip(),
+        "llm_base_url": "" if body.evaluator == "laya" else body.llm_base_url.strip().rstrip("/"),
+        "llm_model": "" if body.evaluator == "laya" else body.llm_model.strip(),
         "response_format_json": bool(body.response_format_json),
         "prompt_profile": profile_name,
         "max_persona_chars": int(body.max_persona_chars),

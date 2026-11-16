@@ -1,0 +1,1549 @@
+{
+  "measured_date": "2026-11-17 Asia/Seoul",
+  "upstream_base": "bcd5ca31ff00e8f103e3bf59bab61c2d787a8df6",
+  "method": "paid-purchase-intent; separate from free-trial adoption",
+  "environment": {
+    "os": "Ubuntu 26.04.1 LTS",
+    "cpu": "AMD Ryzen 5 5600",
+    "gpu": "NVIDIA TITAN RTX 24 GiB",
+    "driver": "580.178.04",
+    "python": "3.11.18",
+    "torch": "2.14.0+cu130",
+    "laya": "0.4.35",
+    "laya_model": "convaiinnovations/laya-multilingual",
+    "laya_revision": "92d22143468d8af669dc1a5a0480a2b21b4fe56e",
+    "laya_dtype": "FP16 autocast",
+    "gemma_model": "gemma4:e2b-it-q4_K_M",
+    "gemma_digest": "6da30939bd9190cdf47692b3bc094758ae8a46696d015742b5cf4b3eb08b0772",
+    "gemma_quantization": "Q4_K_M",
+    "ollama": "0.40.2",
+    "gemma_gpu_offload": "100% GPU",
+    "gemma_context_length": 32768,
+    "fastapi": "0.135.4",
+    "chroma": "1.5.9",
+    "worker_parallelism": 2,
+    "retrieval_device": "cpu",
+    "laya_method": "binary-choice-probability-order-average-v2"
+  },
+  "comparisons": [
+    {
+      "personas": 8,
+      "state": "first",
+      "laya_sec": 14.106,
+      "gemma_sec": 39.242,
+      "speedup": 2.782,
+      "matched_personas": 8,
+      "winner_matches": 4,
+      "laya_final_winner": "A",
+      "gemma_final_winner": "B",
+      "laya_tokens": {
+        "prompt_tokens": 94720,
+        "completion_tokens": 0,
+        "total_tokens": 94720,
+        "eval_prompt_tokens": 94720,
+        "eval_completion_tokens": 0,
+        "eval_total_tokens": 94720,
+        "synthesis_prompt_tokens": 0,
+        "synthesis_completion_tokens": 0,
+        "synthesis_total_tokens": 0,
+        "llm_call_count": 8,
+        "eval_call_count": 8,
+        "synthesis_call_count": 0,
+        "task_count": 8
+      },
+      "gemma_tokens": {
+        "prompt_tokens": 6078,
+        "completion_tokens": 6741,
+        "total_tokens": 12819,
+        "eval_prompt_tokens": 6078,
+        "eval_completion_tokens": 6741,
+        "eval_total_tokens": 12819,
+        "synthesis_prompt_tokens": 0,
+        "synthesis_completion_tokens": 0,
+        "synthesis_total_tokens": 0,
+        "llm_call_count": 8,
+        "eval_call_count": 8,
+        "synthesis_call_count": 0,
+        "task_count": 8
+      },
+      "selection_sha256": "642f4f0cb4ebdf9a1896e773b17f7dcaa5d6329781574e4b79c03924d4875f7c"
+    },
+    {
+      "personas": 8,
+      "state": "repeat",
+      "laya_sec": 14.62,
+      "gemma_sec": 37.22,
+      "speedup": 2.546,
+      "matched_personas": 8,
+      "winner_matches": 6,
+      "laya_final_winner": "A",
+      "gemma_final_winner": "B",
+      "laya_tokens": {
+        "prompt_tokens": 94720,
+        "completion_tokens": 0,
+        "total_tokens": 94720,
+        "eval_prompt_tokens": 94720,
+        "eval_completion_tokens": 0,
+        "eval_total_tokens": 94720,
+        "synthesis_prompt_tokens": 0,
+        "synthesis_completion_tokens": 0,
+        "synthesis_total_tokens": 0,
+        "llm_call_count": 8,
+        "eval_call_count": 8,
+        "synthesis_call_count": 0,
+        "task_count": 8
+      },
+      "gemma_tokens": {
+        "prompt_tokens": 6078,
+        "completion_tokens": 7067,
+        "total_tokens": 13145,
+        "eval_prompt_tokens": 6078,
+        "eval_completion_tokens": 7067,
+        "eval_total_tokens": 13145,
+        "synthesis_prompt_tokens": 0,
+        "synthesis_completion_tokens": 0,
+        "synthesis_total_tokens": 0,
+        "llm_call_count": 8,
+        "eval_call_count": 8,
+        "synthesis_call_count": 0,
+        "task_count": 8
+      },
+      "selection_sha256": "642f4f0cb4ebdf9a1896e773b17f7dcaa5d6329781574e4b79c03924d4875f7c"
+    },
+    {
+      "personas": 24,
+      "state": "repeat",
+      "laya_sec": 16.114,
+      "gemma_sec": 88.995,
+      "speedup": 5.523,
+      "matched_personas": 24,
+      "winner_matches": 8,
+      "laya_final_winner": "A",
+      "gemma_final_winner": "B",
+      "laya_tokens": {
+        "prompt_tokens": 282704,
+        "completion_tokens": 0,
+        "total_tokens": 282704,
+        "eval_prompt_tokens": 282704,
+        "eval_completion_tokens": 0,
+        "eval_total_tokens": 282704,
+        "synthesis_prompt_tokens": 0,
+        "synthesis_completion_tokens": 0,
+        "synthesis_total_tokens": 0,
+        "llm_call_count": 24,
+        "eval_call_count": 24,
+        "synthesis_call_count": 0,
+        "task_count": 24
+      },
+      "gemma_tokens": {
+        "prompt_tokens": 18254,
+        "completion_tokens": 21115,
+        "total_tokens": 39369,
+        "eval_prompt_tokens": 18254,
+        "eval_completion_tokens": 21115,
+        "eval_total_tokens": 39369,
+        "synthesis_prompt_tokens": 0,
+        "synthesis_completion_tokens": 0,
+        "synthesis_total_tokens": 0,
+        "llm_call_count": 24,
+        "eval_call_count": 24,
+        "synthesis_call_count": 0,
+        "task_count": 24
+      },
+      "selection_sha256": "7f6807ab93188ab6570622855229b4612bba31508d7bc5b2cba84e884f5858a8"
+    }
+  ],
+  "repeatability": {
+    "laya": {
+      "same_personas": true,
+      "winner_matches": 8,
+      "identical_scores": 8,
+      "sample_size": 8
+    },
+    "gemma": {
+      "same_personas": true,
+      "winner_matches": 6,
+      "identical_scores": 0,
+      "sample_size": 8
+    }
+  },
+  "paired_results": [
+    {
+      "case": "first_8",
+      "results": [
+        {
+          "persona_key_sha256": "0d39cdb12b3d86e007f3bd0cea7d2aa9efdb421e21525360281997d1eb3f4f0b",
+          "age_bucket": "40s",
+          "laya_winner": "A",
+          "gemma_winner": "B",
+          "laya_scores": {
+            "A": {
+              "interest": 77,
+              "click_intent": 89,
+              "purchase_intent": 80,
+              "trust": 81
+            },
+            "B": {
+              "interest": 87,
+              "click_intent": 90,
+              "purchase_intent": 76,
+              "trust": 69
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 70,
+              "click_intent": 65,
+              "purchase_intent": 50,
+              "trust": 80
+            },
+            "B": {
+              "interest": 85,
+              "click_intent": 88,
+              "purchase_intent": 85,
+              "trust": 75
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "05be8761268212f139bd7dc16df414c4c1e9af7b71c7592cb158c1ca08473a8b",
+          "age_bucket": "40s",
+          "laya_winner": "A",
+          "gemma_winner": "A",
+          "laya_scores": {
+            "A": {
+              "interest": 77,
+              "click_intent": 82,
+              "purchase_intent": 82,
+              "trust": 76
+            },
+            "B": {
+              "interest": 67,
+              "click_intent": 74,
+              "purchase_intent": 82,
+              "trust": 66
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 85,
+              "click_intent": 80,
+              "purchase_intent": 65,
+              "trust": 85
+            },
+            "B": {
+              "interest": 60,
+              "click_intent": 90,
+              "purchase_intent": 95,
+              "trust": 70
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "14e39fc2f076c2f383559757e062ed2e33e27b6a030edcff9134be5d50944ecb",
+          "age_bucket": "50s",
+          "laya_winner": "A",
+          "gemma_winner": "A",
+          "laya_scores": {
+            "A": {
+              "interest": 74,
+              "click_intent": 81,
+              "purchase_intent": 74,
+              "trust": 76
+            },
+            "B": {
+              "interest": 72,
+              "click_intent": 72,
+              "purchase_intent": 82,
+              "trust": 67
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 85,
+              "click_intent": 90,
+              "purchase_intent": 60,
+              "trust": 80
+            },
+            "B": {
+              "interest": 70,
+              "click_intent": 75,
+              "purchase_intent": 85,
+              "trust": 65
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "5054a3a2c6a93cd09f40ba4973efcab891d1d810f379cea8c5a4fed4b1c95101",
+          "age_bucket": "30s",
+          "laya_winner": "B",
+          "gemma_winner": "B",
+          "laya_scores": {
+            "A": {
+              "interest": 98,
+              "click_intent": 96,
+              "purchase_intent": 79,
+              "trust": 99
+            },
+            "B": {
+              "interest": 93,
+              "click_intent": 96,
+              "purchase_intent": 96,
+              "trust": 73
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 60,
+              "click_intent": 55,
+              "purchase_intent": 40,
+              "trust": 70
+            },
+            "B": {
+              "interest": 85,
+              "click_intent": 88,
+              "purchase_intent": 80,
+              "trust": 85
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "64bda667a703c1839f2347a67dc40211a199a1694249112647a9b9477d9f7643",
+          "age_bucket": "30s",
+          "laya_winner": "A",
+          "gemma_winner": "A",
+          "laya_scores": {
+            "A": {
+              "interest": 77,
+              "click_intent": 86,
+              "purchase_intent": 83,
+              "trust": 81
+            },
+            "B": {
+              "interest": 73,
+              "click_intent": 79,
+              "purchase_intent": 73,
+              "trust": 79
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 85,
+              "click_intent": 88,
+              "purchase_intent": 75,
+              "trust": 95
+            },
+            "B": {
+              "interest": 70,
+              "click_intent": 75,
+              "purchase_intent": 60,
+              "trust": 80
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "d4ee8606919af3e7ebe9d772103655cce3d46aa2c0a598d537c29db66a563310",
+          "age_bucket": "20s",
+          "laya_winner": "A",
+          "gemma_winner": "B",
+          "laya_scores": {
+            "A": {
+              "interest": 80,
+              "click_intent": 87,
+              "purchase_intent": 81,
+              "trust": 74
+            },
+            "B": {
+              "interest": 77,
+              "click_intent": 84,
+              "purchase_intent": 80,
+              "trust": 69
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 60,
+              "click_intent": 55,
+              "purchase_intent": 40,
+              "trust": 70
+            },
+            "B": {
+              "interest": 75,
+              "click_intent": 85,
+              "purchase_intent": 80,
+              "trust": 80
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "a4c89ba934483a2a53fd2ac19fae88517c02bbd453c0216a50f4d60a3e13fd5d",
+          "age_bucket": "20s",
+          "laya_winner": "A",
+          "gemma_winner": "B",
+          "laya_scores": {
+            "A": {
+              "interest": 78,
+              "click_intent": 75,
+              "purchase_intent": 69,
+              "trust": 70
+            },
+            "B": {
+              "interest": 64,
+              "click_intent": 80,
+              "purchase_intent": 77,
+              "trust": 66
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 70,
+              "click_intent": 65,
+              "purchase_intent": 50,
+              "trust": 80
+            },
+            "B": {
+              "interest": 85,
+              "click_intent": 85,
+              "purchase_intent": 80,
+              "trust": 75
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "a0960c58bcb53d6e85a2e7a388dce5ae34a849b12940f92bc1734a8f5d17bda5",
+          "age_bucket": "50s",
+          "laya_winner": "A",
+          "gemma_winner": "B",
+          "laya_scores": {
+            "A": {
+              "interest": 88,
+              "click_intent": 90,
+              "purchase_intent": 85,
+              "trust": 86
+            },
+            "B": {
+              "interest": 85,
+              "click_intent": 87,
+              "purchase_intent": 87,
+              "trust": 71
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 65,
+              "click_intent": 70,
+              "purchase_intent": 50,
+              "trust": 75
+            },
+            "B": {
+              "interest": 85,
+              "click_intent": 88,
+              "purchase_intent": 92,
+              "trust": 80
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "repeat_8",
+      "results": [
+        {
+          "persona_key_sha256": "0d39cdb12b3d86e007f3bd0cea7d2aa9efdb421e21525360281997d1eb3f4f0b",
+          "age_bucket": "40s",
+          "laya_winner": "A",
+          "gemma_winner": "B",
+          "laya_scores": {
+            "A": {
+              "interest": 77,
+              "click_intent": 89,
+              "purchase_intent": 80,
+              "trust": 81
+            },
+            "B": {
+              "interest": 87,
+              "click_intent": 90,
+              "purchase_intent": 76,
+              "trust": 69
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 75,
+              "click_intent": 60,
+              "purchase_intent": 40,
+              "trust": 85
+            },
+            "B": {
+              "interest": 80,
+              "click_intent": 85,
+              "purchase_intent": 90,
+              "trust": 70
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "05be8761268212f139bd7dc16df414c4c1e9af7b71c7592cb158c1ca08473a8b",
+          "age_bucket": "40s",
+          "laya_winner": "A",
+          "gemma_winner": "A",
+          "laya_scores": {
+            "A": {
+              "interest": 77,
+              "click_intent": 82,
+              "purchase_intent": 82,
+              "trust": 76
+            },
+            "B": {
+              "interest": 67,
+              "click_intent": 74,
+              "purchase_intent": 82,
+              "trust": 66
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 85,
+              "click_intent": 80,
+              "purchase_intent": 65,
+              "trust": 88
+            },
+            "B": {
+              "interest": 70,
+              "click_intent": 75,
+              "purchase_intent": 85,
+              "trust": 75
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "14e39fc2f076c2f383559757e062ed2e33e27b6a030edcff9134be5d50944ecb",
+          "age_bucket": "50s",
+          "laya_winner": "A",
+          "gemma_winner": "A",
+          "laya_scores": {
+            "A": {
+              "interest": 74,
+              "click_intent": 81,
+              "purchase_intent": 74,
+              "trust": 76
+            },
+            "B": {
+              "interest": 72,
+              "click_intent": 72,
+              "purchase_intent": 82,
+              "trust": 67
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 85,
+              "click_intent": 80,
+              "purchase_intent": 65,
+              "trust": 90
+            },
+            "B": {
+              "interest": 70,
+              "click_intent": 95,
+              "purchase_intent": 85,
+              "trust": 60
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "5054a3a2c6a93cd09f40ba4973efcab891d1d810f379cea8c5a4fed4b1c95101",
+          "age_bucket": "30s",
+          "laya_winner": "B",
+          "gemma_winner": "B",
+          "laya_scores": {
+            "A": {
+              "interest": 98,
+              "click_intent": 96,
+              "purchase_intent": 79,
+              "trust": 99
+            },
+            "B": {
+              "interest": 93,
+              "click_intent": 96,
+              "purchase_intent": 96,
+              "trust": 73
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 70,
+              "click_intent": 65,
+              "purchase_intent": 50,
+              "trust": 75
+            },
+            "B": {
+              "interest": 85,
+              "click_intent": 88,
+              "purchase_intent": 80,
+              "trust": 80
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "64bda667a703c1839f2347a67dc40211a199a1694249112647a9b9477d9f7643",
+          "age_bucket": "30s",
+          "laya_winner": "A",
+          "gemma_winner": "A",
+          "laya_scores": {
+            "A": {
+              "interest": 77,
+              "click_intent": 86,
+              "purchase_intent": 83,
+              "trust": 81
+            },
+            "B": {
+              "interest": 73,
+              "click_intent": 79,
+              "purchase_intent": 73,
+              "trust": 79
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 85,
+              "click_intent": 90,
+              "purchase_intent": 75,
+              "trust": 80
+            },
+            "B": {
+              "interest": 70,
+              "click_intent": 75,
+              "purchase_intent": 85,
+              "trust": 70
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "d4ee8606919af3e7ebe9d772103655cce3d46aa2c0a598d537c29db66a563310",
+          "age_bucket": "20s",
+          "laya_winner": "A",
+          "gemma_winner": "A",
+          "laya_scores": {
+            "A": {
+              "interest": 80,
+              "click_intent": 87,
+              "purchase_intent": 81,
+              "trust": 74
+            },
+            "B": {
+              "interest": 77,
+              "click_intent": 84,
+              "purchase_intent": 80,
+              "trust": 69
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 85,
+              "click_intent": 90,
+              "purchase_intent": 75,
+              "trust": 80
+            },
+            "B": {
+              "interest": 70,
+              "click_intent": 85,
+              "purchase_intent": 80,
+              "trust": 75
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "a4c89ba934483a2a53fd2ac19fae88517c02bbd453c0216a50f4d60a3e13fd5d",
+          "age_bucket": "20s",
+          "laya_winner": "A",
+          "gemma_winner": "A",
+          "laya_scores": {
+            "A": {
+              "interest": 78,
+              "click_intent": 75,
+              "purchase_intent": 69,
+              "trust": 70
+            },
+            "B": {
+              "interest": 64,
+              "click_intent": 80,
+              "purchase_intent": 77,
+              "trust": 66
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 90,
+              "click_intent": 95,
+              "purchase_intent": 85,
+              "trust": 90
+            },
+            "B": {
+              "interest": 75,
+              "click_intent": 80,
+              "purchase_intent": 85,
+              "trust": 80
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "a0960c58bcb53d6e85a2e7a388dce5ae34a849b12940f92bc1734a8f5d17bda5",
+          "age_bucket": "50s",
+          "laya_winner": "A",
+          "gemma_winner": "B",
+          "laya_scores": {
+            "A": {
+              "interest": 88,
+              "click_intent": 90,
+              "purchase_intent": 85,
+              "trust": 86
+            },
+            "B": {
+              "interest": 85,
+              "click_intent": 87,
+              "purchase_intent": 87,
+              "trust": 71
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 65,
+              "click_intent": 55,
+              "purchase_intent": 40,
+              "trust": 70
+            },
+            "B": {
+              "interest": 85,
+              "click_intent": 80,
+              "purchase_intent": 85,
+              "trust": 80
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "repeat_24",
+      "results": [
+        {
+          "persona_key_sha256": "4c77a6d13e11f740d7d7f44c31673514abe660ad69021417eb2ae0bd7b3f91f7",
+          "age_bucket": "30s",
+          "laya_winner": "A",
+          "gemma_winner": "A",
+          "laya_scores": {
+            "A": {
+              "interest": 87,
+              "click_intent": 84,
+              "purchase_intent": 80,
+              "trust": 86
+            },
+            "B": {
+              "interest": 84,
+              "click_intent": 79,
+              "purchase_intent": 71,
+              "trust": 75
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 85,
+              "click_intent": 90,
+              "purchase_intent": 75,
+              "trust": 80
+            },
+            "B": {
+              "interest": 70,
+              "click_intent": 75,
+              "purchase_intent": 85,
+              "trust": 70
+            },
+            "reason": "30대 직장인 페르소나는 낮은 위험 부담을 선호하므로, 무료 체험(A)이 즉각적인 클릭과 탐색 욕구를 더 효과적으로 유발한다."
+          }
+        },
+        {
+          "persona_key_sha256": "07402bf704c2fdfbdf7810af83736d8cf2e4ee68fe3c1e0682449709bf9bd9ed",
+          "age_bucket": "40s",
+          "laya_winner": "A",
+          "gemma_winner": "B",
+          "laya_scores": {
+            "A": {
+              "interest": 69,
+              "click_intent": 90,
+              "purchase_intent": 57,
+              "trust": 73
+            },
+            "B": {
+              "interest": 51,
+              "click_intent": 65,
+              "purchase_intent": 69,
+              "trust": 48
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 60,
+              "click_intent": 55,
+              "purchase_intent": 40,
+              "trust": 70
+            },
+            "B": {
+              "interest": 85,
+              "click_intent": 88,
+              "purchase_intent": 92,
+              "trust": 80
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "db578eae7088a3beae81e63dc6553ee1262e3ec13c2d708c803b361041d9d571",
+          "age_bucket": "50s",
+          "laya_winner": "B",
+          "gemma_winner": "A",
+          "laya_scores": {
+            "A": {
+              "interest": 85,
+              "click_intent": 93,
+              "purchase_intent": 82,
+              "trust": 91
+            },
+            "B": {
+              "interest": 89,
+              "click_intent": 93,
+              "purchase_intent": 85,
+              "trust": 78
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 90,
+              "click_intent": 95,
+              "purchase_intent": 70,
+              "trust": 85
+            },
+            "B": {
+              "interest": 60,
+              "click_intent": 75,
+              "purchase_intent": 80,
+              "trust": 70
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "096140d1cc5d35b90d6d6332df2a6ffcba8c39837b5e4b2766cff8f9925cfd4f",
+          "age_bucket": "20s",
+          "laya_winner": "A",
+          "gemma_winner": "A",
+          "laya_scores": {
+            "A": {
+              "interest": 92,
+              "click_intent": 92,
+              "purchase_intent": 91,
+              "trust": 87
+            },
+            "B": {
+              "interest": 68,
+              "click_intent": 83,
+              "purchase_intent": 88,
+              "trust": 64
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 85,
+              "click_intent": 80,
+              "purchase_intent": 65,
+              "trust": 90
+            },
+            "B": {
+              "interest": 70,
+              "click_intent": 75,
+              "purchase_intent": 85,
+              "trust": 75
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "a6b87a332e532fae01f6c925b5bad4caf2d08aa6046df42dd6207fd4cd4cf3c8",
+          "age_bucket": "40s",
+          "laya_winner": "B",
+          "gemma_winner": "B",
+          "laya_scores": {
+            "A": {
+              "interest": 57,
+              "click_intent": 65,
+              "purchase_intent": 57,
+              "trust": 55
+            },
+            "B": {
+              "interest": 75,
+              "click_intent": 88,
+              "purchase_intent": 88,
+              "trust": 59
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 70,
+              "click_intent": 65,
+              "purchase_intent": 50,
+              "trust": 85
+            },
+            "B": {
+              "interest": 80,
+              "click_intent": 85,
+              "purchase_intent": 80,
+              "trust": 75
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "ea04351e5d946ab4de54f8062d5dd34368cbf27e392232dfdb5f355b55dd6084",
+          "age_bucket": "30s",
+          "laya_winner": "B",
+          "gemma_winner": "A",
+          "laya_scores": {
+            "A": {
+              "interest": 71,
+              "click_intent": 83,
+              "purchase_intent": 69,
+              "trust": 79
+            },
+            "B": {
+              "interest": 73,
+              "click_intent": 80,
+              "purchase_intent": 81,
+              "trust": 60
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 85,
+              "click_intent": 80,
+              "purchase_intent": 65,
+              "trust": 90
+            },
+            "B": {
+              "interest": 60,
+              "click_intent": 75,
+              "purchase_intent": 85,
+              "trust": 70
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "c79d927414b9f1ebbef6355307337ae00339a0faa1c69aa0afe00abfb3b08e45",
+          "age_bucket": "40s",
+          "laya_winner": "B",
+          "gemma_winner": "A",
+          "laya_scores": {
+            "A": {
+              "interest": 58,
+              "click_intent": 59,
+              "purchase_intent": 54,
+              "trust": 61
+            },
+            "B": {
+              "interest": 52,
+              "click_intent": 57,
+              "purchase_intent": 70,
+              "trust": 40
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 90,
+              "click_intent": 95,
+              "purchase_intent": 70,
+              "trust": 90
+            },
+            "B": {
+              "interest": 75,
+              "click_intent": 85,
+              "purchase_intent": 80,
+              "trust": 75
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "0d39cdb12b3d86e007f3bd0cea7d2aa9efdb421e21525360281997d1eb3f4f0b",
+          "age_bucket": "40s",
+          "laya_winner": "A",
+          "gemma_winner": "B",
+          "laya_scores": {
+            "A": {
+              "interest": 77,
+              "click_intent": 89,
+              "purchase_intent": 80,
+              "trust": 81
+            },
+            "B": {
+              "interest": 87,
+              "click_intent": 90,
+              "purchase_intent": 76,
+              "trust": 69
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 65,
+              "click_intent": 55,
+              "purchase_intent": 40,
+              "trust": 70
+            },
+            "B": {
+              "interest": 85,
+              "click_intent": 80,
+              "purchase_intent": 85,
+              "trust": 80
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "05be8761268212f139bd7dc16df414c4c1e9af7b71c7592cb158c1ca08473a8b",
+          "age_bucket": "40s",
+          "laya_winner": "A",
+          "gemma_winner": "B",
+          "laya_scores": {
+            "A": {
+              "interest": 77,
+              "click_intent": 82,
+              "purchase_intent": 82,
+              "trust": 76
+            },
+            "B": {
+              "interest": 67,
+              "click_intent": 74,
+              "purchase_intent": 82,
+              "trust": 66
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 65,
+              "click_intent": 55,
+              "purchase_intent": 40,
+              "trust": 70
+            },
+            "B": {
+              "interest": 75,
+              "click_intent": 85,
+              "purchase_intent": 80,
+              "trust": 80
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "14e39fc2f076c2f383559757e062ed2e33e27b6a030edcff9134be5d50944ecb",
+          "age_bucket": "50s",
+          "laya_winner": "A",
+          "gemma_winner": "A",
+          "laya_scores": {
+            "A": {
+              "interest": 74,
+              "click_intent": 81,
+              "purchase_intent": 74,
+              "trust": 76
+            },
+            "B": {
+              "interest": 72,
+              "click_intent": 72,
+              "purchase_intent": 82,
+              "trust": 67
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 85,
+              "click_intent": 90,
+              "purchase_intent": 60,
+              "trust": 95
+            },
+            "B": {
+              "interest": 70,
+              "click_intent": 75,
+              "purchase_intent": 80,
+              "trust": 70
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "223802af84cc7364fb4b6aaf3d26e33f1e446f3224e370a659f7bb49f025c8dd",
+          "age_bucket": "40s",
+          "laya_winner": "A",
+          "gemma_winner": "B",
+          "laya_scores": {
+            "A": {
+              "interest": 82,
+              "click_intent": 76,
+              "purchase_intent": 81,
+              "trust": 87
+            },
+            "B": {
+              "interest": 66,
+              "click_intent": 78,
+              "purchase_intent": 75,
+              "trust": 68
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 65,
+              "click_intent": 55,
+              "purchase_intent": 40,
+              "trust": 70
+            },
+            "B": {
+              "interest": 85,
+              "click_intent": 80,
+              "purchase_intent": 75,
+              "trust": 80
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "99eb764de5536650cd8befe75146ad7ae9a7dd9aca72ddc401c44e0dfffbc5d8",
+          "age_bucket": "30s",
+          "laya_winner": "B",
+          "gemma_winner": "A",
+          "laya_scores": {
+            "A": {
+              "interest": 50,
+              "click_intent": 50,
+              "purchase_intent": 62,
+              "trust": 72
+            },
+            "B": {
+              "interest": 59,
+              "click_intent": 72,
+              "purchase_intent": 63,
+              "trust": 55
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 85,
+              "click_intent": 90,
+              "purchase_intent": 60,
+              "trust": 80
+            },
+            "B": {
+              "interest": 70,
+              "click_intent": 75,
+              "purchase_intent": 85,
+              "trust": 70
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "5054a3a2c6a93cd09f40ba4973efcab891d1d810f379cea8c5a4fed4b1c95101",
+          "age_bucket": "30s",
+          "laya_winner": "B",
+          "gemma_winner": "B",
+          "laya_scores": {
+            "A": {
+              "interest": 98,
+              "click_intent": 96,
+              "purchase_intent": 79,
+              "trust": 99
+            },
+            "B": {
+              "interest": 93,
+              "click_intent": 96,
+              "purchase_intent": 96,
+              "trust": 73
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 75,
+              "click_intent": 60,
+              "purchase_intent": 40,
+              "trust": 70
+            },
+            "B": {
+              "interest": 85,
+              "click_intent": 88,
+              "purchase_intent": 80,
+              "trust": 85
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "64bda667a703c1839f2347a67dc40211a199a1694249112647a9b9477d9f7643",
+          "age_bucket": "30s",
+          "laya_winner": "A",
+          "gemma_winner": "B",
+          "laya_scores": {
+            "A": {
+              "interest": 77,
+              "click_intent": 86,
+              "purchase_intent": 83,
+              "trust": 81
+            },
+            "B": {
+              "interest": 73,
+              "click_intent": 79,
+              "purchase_intent": 73,
+              "trust": 79
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 70,
+              "click_intent": 60,
+              "purchase_intent": 40,
+              "trust": 85
+            },
+            "B": {
+              "interest": 80,
+              "click_intent": 85,
+              "purchase_intent": 80,
+              "trust": 75
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "d4ee8606919af3e7ebe9d772103655cce3d46aa2c0a598d537c29db66a563310",
+          "age_bucket": "20s",
+          "laya_winner": "A",
+          "gemma_winner": "B",
+          "laya_scores": {
+            "A": {
+              "interest": 80,
+              "click_intent": 87,
+              "purchase_intent": 81,
+              "trust": 74
+            },
+            "B": {
+              "interest": 77,
+              "click_intent": 84,
+              "purchase_intent": 80,
+              "trust": 69
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 75,
+              "click_intent": 65,
+              "purchase_intent": 50,
+              "trust": 80
+            },
+            "B": {
+              "interest": 85,
+              "click_intent": 85,
+              "purchase_intent": 90,
+              "trust": 70
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "6970db64b81ae790b3a1c4ee8a0fc34a79d9d7d6e0da7e6e7f89b50d0e336b69",
+          "age_bucket": "20s",
+          "laya_winner": "B",
+          "gemma_winner": "A",
+          "laya_scores": {
+            "A": {
+              "interest": 49,
+              "click_intent": 98,
+              "purchase_intent": 88,
+              "trust": 92
+            },
+            "B": {
+              "interest": 90,
+              "click_intent": 90,
+              "purchase_intent": 85,
+              "trust": 71
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 85,
+              "click_intent": 80,
+              "purchase_intent": 65,
+              "trust": 90
+            },
+            "B": {
+              "interest": 70,
+              "click_intent": 75,
+              "purchase_intent": 70,
+              "trust": 75
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "9f138672b15b110731a4d994f74cc40dff5396b4e1568687eacc21b10d8e8189",
+          "age_bucket": "20s",
+          "laya_winner": "B",
+          "gemma_winner": "A",
+          "laya_scores": {
+            "A": {
+              "interest": 84,
+              "click_intent": 83,
+              "purchase_intent": 64,
+              "trust": 75
+            },
+            "B": {
+              "interest": 87,
+              "click_intent": 81,
+              "purchase_intent": 73,
+              "trust": 73
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 85,
+              "click_intent": 90,
+              "purchase_intent": 60,
+              "trust": 80
+            },
+            "B": {
+              "interest": 70,
+              "click_intent": 75,
+              "purchase_intent": 85,
+              "trust": 70
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "a0337a2a5e893c3104bbc0f707b00f14bc0c6dfb6e96c545321b852533036675",
+          "age_bucket": "20s",
+          "laya_winner": "B",
+          "gemma_winner": "A",
+          "laya_scores": {
+            "A": {
+              "interest": 67,
+              "click_intent": 76,
+              "purchase_intent": 73,
+              "trust": 62
+            },
+            "B": {
+              "interest": 62,
+              "click_intent": 77,
+              "purchase_intent": 74,
+              "trust": 71
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 85,
+              "click_intent": 80,
+              "purchase_intent": 65,
+              "trust": 90
+            },
+            "B": {
+              "interest": 70,
+              "click_intent": 75,
+              "purchase_intent": 85,
+              "trust": 75
+            },
+            "reason": "실무 중심의 페르소나에게는 즉각적인 할인(B)보다 위험 부담이 적은 무료 체험(A)이 신뢰를 높이고 클릭을 유도하여 장기적인 구독으로 이어질 가능성이 더 높습니다."
+          }
+        },
+        {
+          "persona_key_sha256": "7bfa4e0fa660b1a0ac54507038bd2fa9ba37bb5b1c57be1f5e2842d6ec4b21b9",
+          "age_bucket": "30s",
+          "laya_winner": "A",
+          "gemma_winner": "B",
+          "laya_scores": {
+            "A": {
+              "interest": 80,
+              "click_intent": 81,
+              "purchase_intent": 77,
+              "trust": 86
+            },
+            "B": {
+              "interest": 73,
+              "click_intent": 85,
+              "purchase_intent": 82,
+              "trust": 64
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 60,
+              "click_intent": 55,
+              "purchase_intent": 40,
+              "trust": 70
+            },
+            "B": {
+              "interest": 85,
+              "click_intent": 88,
+              "purchase_intent": 80,
+              "trust": 85
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "a4c89ba934483a2a53fd2ac19fae88517c02bbd453c0216a50f4d60a3e13fd5d",
+          "age_bucket": "20s",
+          "laya_winner": "A",
+          "gemma_winner": "A",
+          "laya_scores": {
+            "A": {
+              "interest": 78,
+              "click_intent": 75,
+              "purchase_intent": 69,
+              "trust": 70
+            },
+            "B": {
+              "interest": 64,
+              "click_intent": 80,
+              "purchase_intent": 77,
+              "trust": 66
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 90,
+              "click_intent": 85,
+              "purchase_intent": 70,
+              "trust": 80
+            },
+            "B": {
+              "interest": 65,
+              "click_intent": 75,
+              "purchase_intent": 60,
+              "trust": 70
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "4dc621c0bc182bcd4db7c26620248efab21abd55decf10de92c7918cdf61722a",
+          "age_bucket": "50s",
+          "laya_winner": "A",
+          "gemma_winner": "B",
+          "laya_scores": {
+            "A": {
+              "interest": 67,
+              "click_intent": 73,
+              "purchase_intent": 79,
+              "trust": 60
+            },
+            "B": {
+              "interest": 69,
+              "click_intent": 82,
+              "purchase_intent": 72,
+              "trust": 55
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 75,
+              "click_intent": 60,
+              "purchase_intent": 50,
+              "trust": 70
+            },
+            "B": {
+              "interest": 85,
+              "click_intent": 80,
+              "purchase_intent": 85,
+              "trust": 75
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "9c7c2371750ac12f5bb3a26946002b87ad6ddce4a514d9cd44dfbb42f5c8fe69",
+          "age_bucket": "50s",
+          "laya_winner": "A",
+          "gemma_winner": "A",
+          "laya_scores": {
+            "A": {
+              "interest": 74,
+              "click_intent": 76,
+              "purchase_intent": 72,
+              "trust": 72
+            },
+            "B": {
+              "interest": 68,
+              "click_intent": 72,
+              "purchase_intent": 75,
+              "trust": 65
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 85,
+              "click_intent": 90,
+              "purchase_intent": 60,
+              "trust": 80
+            },
+            "B": {
+              "interest": 70,
+              "click_intent": 75,
+              "purchase_intent": 85,
+              "trust": 70
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "729b8a65d9aa6b0bad22d28aff75ab3540875b12e92224df1a1fd1d8f69bb01d",
+          "age_bucket": "50s",
+          "laya_winner": "A",
+          "gemma_winner": "A",
+          "laya_scores": {
+            "A": {
+              "interest": 91,
+              "click_intent": 89,
+              "purchase_intent": 83,
+              "trust": 90
+            },
+            "B": {
+              "interest": 89,
+              "click_intent": 94,
+              "purchase_intent": 72,
+              "trust": 73
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 85,
+              "click_intent": 80,
+              "purchase_intent": 65,
+              "trust": 90
+            },
+            "B": {
+              "interest": 70,
+              "click_intent": 75,
+              "purchase_intent": 85,
+              "trust": 60
+            }
+          }
+        },
+        {
+          "persona_key_sha256": "a0960c58bcb53d6e85a2e7a388dce5ae34a849b12940f92bc1734a8f5d17bda5",
+          "age_bucket": "50s",
+          "laya_winner": "A",
+          "gemma_winner": "B",
+          "laya_scores": {
+            "A": {
+              "interest": 88,
+              "click_intent": 90,
+              "purchase_intent": 85,
+              "trust": 86
+            },
+            "B": {
+              "interest": 85,
+              "click_intent": 87,
+              "purchase_intent": 87,
+              "trust": 71
+            }
+          },
+          "gemma_scores": {
+            "A": {
+              "interest": 65,
+              "click_intent": 55,
+              "purchase_intent": 40,
+              "trust": 70
+            },
+            "B": {
+              "interest": 85,
+              "click_intent": 80,
+              "purchase_intent": 75,
+              "trust": 85
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

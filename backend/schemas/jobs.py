@@ -35,7 +35,7 @@ class JobCreate(BaseModel):
     image_b: ImageRefIn | None = None
     context: str = Field("", max_length=4000)
     profile: str = "small"
-    evaluator: str = "mock"
+    evaluator: str = "laya"
     llm_base_url: str = ""
     llm_model: str = ""
     response_format_json: bool = False
