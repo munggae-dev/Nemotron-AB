@@ -6,7 +6,6 @@ import random
 from typing import Any
 
 from nemotron_ab.campaign_assets import payload_has_any_image
-from nemotron_ab.persona_filter_schema import retrieval_fanout_multiplier
 from nemotron_ab.persona_where import (
     _NEMOTRON_META_KEYS,
     district_exact_token,
@@ -206,8 +205,6 @@ def retrieve_personas_balanced_chroma(
     from nemotron_ab.persona_where import chroma_where_and
 
     where = chroma_where_and(persona_filter)
-    mult = retrieval_fanout_multiplier(persona_filter)
-    n_results = min(2000, max(max_personas * mult, max_personas, 20))
     offset = 0
     page = 1000
     fallback: list[dict[str, Any]] = []

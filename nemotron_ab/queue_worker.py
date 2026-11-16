@@ -4,14 +4,13 @@ import threading
 import time
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, as_completed, wait
 from pathlib import Path
-from typing import Union
 
 from nemotron_ab import db
 from nemotron_ab.db_engine import DBConnection
 from nemotron_ab.job_tasks_worker import process_one_task
 from nemotron_ab.services.validator_runner import run_validator
 
-WorkerTarget = Union[Path, str]
+WorkerTarget = Path | str
 
 
 def _resolve_worker_target(conn) -> WorkerTarget | None:

@@ -25,6 +25,7 @@ def test_payload_uses_new_text_and_context_fields(isolated_sqlite) -> None:
 
     body = JobCreate(
         title="t",
+        evaluator="openai",
         text_a="안녕",
         text_b="반가워",
         context="가입 알림 카피 A/B (30대 여성)",

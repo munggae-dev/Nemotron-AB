@@ -4,6 +4,14 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+import chromadb
+from sentence_transformers import SentenceTransformer
+
+from nemotron_ab.config import get_embed_model_name
+from nemotron_ab.persona_filter_schema import retrieval_fanout_multiplier
+from nemotron_ab.persona_where import chroma_where_and, district_prefix_keyword
+from nemotron_ab.torch_device import resolve_torch_device
+
 ROOT_DIR = Path(__file__).resolve().parents[2]
 
 # 서브프로세스: unset 또는 0 이하 → 타임아웃 없음(기존과 동일). 예: 3600
@@ -112,13 +120,6 @@ def _run_ab_validator_subprocess(cmd: list[str]) -> subprocess.CompletedProcess:
     except subprocess.TimeoutExpired as e:
         raise RuntimeError(_format_timeout_error(cmd, timeout, e)) from e
 
-import chromadb
-from sentence_transformers import SentenceTransformer
-
-from nemotron_ab.config import get_embed_model_name
-from nemotron_ab.torch_device import resolve_torch_device
-from nemotron_ab.persona_filter_schema import retrieval_fanout_multiplier
-from nemotron_ab.persona_where import chroma_where_and, district_prefix_keyword
 
 SCRIPT_PATH = ROOT_DIR / "scripts" / "ab_validator.py"
 OUTPUT_BASE = ROOT_DIR / "outputs" / "jobs"

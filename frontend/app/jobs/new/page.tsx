@@ -170,7 +170,7 @@ const defaultForm = {
   variant_b: defaultVariant(),
   context: "",
   profile: "small",
-  evaluator: "openai",
+  evaluator: "laya",
   llm_base_url: "http://localhost:11434/v1",
   llm_model: "gemma4:e2b-it-q4_K_M",
   response_format_json: false,
@@ -491,6 +491,10 @@ export default function NewJobPage() {
     const text_b = composeVariantText(form.variant_b);
     const img_a = imagePayloadFromVariant(form.variant_a);
     const img_b = imagePayloadFromVariant(form.variant_b);
+    if (form.evaluator === "laya" && (img_a || img_b)) {
+      setErr("LAYA는 텍스트 평가용입니다. 이미지 평가에는 OpenAI-호환 평가기를 선택하세요.");
+      return;
+    }
     if ((!text_a && !img_a) || (!text_b && !img_b)) {
       setErr("각 변형마다 텍스트 또는 이미지(URL/파일 업로드) 중 하나 이상 필요합니다.");
       return;
@@ -989,7 +993,8 @@ export default function NewJobPage() {
           </div>
           <div>
             <label>평가기</label>
-            <select value={form.evaluator} onChange={(e) => setForm({ ...form, evaluator: e.target.value })}>
+            <select value={form.evaluator} onChange={(e) => setForm({ ...form, evaluator: e.target.value, use_llm_task_queue: e.target.value === "laya" ? true : form.use_llm_task_queue })}>
+              <option value="laya">LAYA multilingual (로컬)</option>
               <option value="openai">openai (OpenAI-호환)</option>
               <option value="mock">mock</option>
             </select>
@@ -1066,15 +1071,26 @@ export default function NewJobPage() {
             type="checkbox"
             id="use_llm_task_queue"
             checked={form.use_llm_task_queue}
+            disabled={form.evaluator === "laya"}
             onChange={(e) => setForm({ ...form, use_llm_task_queue: e.target.checked })}
           />
           <label htmlFor="use_llm_task_queue" style={{ marginBottom: 0, textTransform: "none", letterSpacing: "normal" }}>
-            LLM 태스크 큐 사용 (페르소나별 LangChain 호출 단위)
+            페르소나별 평가 태스크 큐 사용
           </label>
         </div>
       </div>
 
-      {form.evaluator !== "mock" ? (
+      {form.evaluator === "laya" ? (
+        <div className="card">
+          <strong>LAYA multilingual · 로컬 텍스트 평가</strong>
+          <p className="muted small">
+            관심·클릭 의도·구매 의도·신뢰를 평가하며, 선택지 순서를 바꾼 두 판단의 확률을 평균합니다.
+            점수는 모델 확률의 0~100 환산값입니다. 실제 사용자 반응과 다를 수 있습니다.
+            이미지 평가는 OpenAI-호환 평가기를 선택하세요.
+          </p>
+        </div>
+      ) : null}
+      {form.evaluator !== "mock" && form.evaluator !== "laya" ? (
         <details className="card collapsible-advanced-card">
           <summary className="collapsible-advanced-summary">
             <span className="tag-advanced">고급</span>

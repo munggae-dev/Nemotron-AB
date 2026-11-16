@@ -594,6 +594,12 @@ export default function JobDetailPage() {
       )}
 
       {err && <div className="msg err">{err}</div>}
+      {payloadParsed?.evaluator === "laya" && (
+        <div className="msg" role="note">
+          LAYA multilingual 평가 · 점수는 모델 확률을 0~100으로 환산한 합성 평가입니다.
+          실제 클릭률·구매율과 다를 수 있습니다. 근거는 점수 요약이며, 생성형 설명이 아닙니다.
+        </div>
+      )}
       {synthErr && <div className="msg err">{synthErr}</div>}
 
       {job?.status === "completed" && report && !overall && (
@@ -723,13 +729,13 @@ export default function JobDetailPage() {
                 <span className="material-symbols-outlined">token</span>
               </div>
               <div>
-                <h4>LLM 사용량</h4>
+                <h4>{payloadParsed?.evaluator === "laya" ? "LAYA 평가 사용량" : "LLM 사용량"}</h4>
                 <p className="report-usage-stat">
                   호출{" "}
                   <strong>
                     {Number(reportLlmUsage?.llm_call_count ?? reportLlmUsage?.task_count ?? 0).toLocaleString()}
                   </strong>
-                  회
+                  {payloadParsed?.evaluator === "laya" ? "건" : "회"}
                   {reportLlmUsage?.eval_call_count != null ? (
                     <span className="report-usage-sub">
                       {" "}
@@ -1165,7 +1171,7 @@ export default function JobDetailPage() {
               {reportLlmUsage ? (
                 <>
                   {" "}
-                  · LLM 호출 {Number(reportLlmUsage.llm_call_count ?? reportLlmUsage.task_count ?? 0).toLocaleString()}
+                  · 평가 {Number(reportLlmUsage.llm_call_count ?? reportLlmUsage.task_count ?? 0).toLocaleString()}
                   회 · 토큰 total {Number(reportLlmUsage.total_tokens).toLocaleString()}
                 </>
               ) : null}
@@ -1240,7 +1246,7 @@ export default function JobDetailPage() {
               <h3>핵심 인사이트</h3>
               <p className="muted" style={{ margin: "0 0 10px", fontSize: 13 }}>
                 앞 줄은 표본 전체 집계 수치, 이어서 연령대별 요약, 마지막은{" "}
-                <strong>전체 평가 표본</strong>에서 신뢰도·점수 차가 큰 순으로 고른 LLM 근거입니다(각 줄에 그
+                <strong>전체 평가 표본</strong>에서 신뢰도·점수 차가 큰 순으로 고른 평가 근거입니다(각 줄에 그
                 페르소나가 선호한 안이 표시됩니다).
               </p>
               <div className="report-insight-body">

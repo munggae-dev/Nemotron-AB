@@ -9,15 +9,15 @@ from pathlib import Path
 os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 import chromadb
-import torch
 from sentence_transformers import SentenceTransformer
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from nemotron_ab.config import get_embed_model_name
-from nemotron_ab.torch_device import (
+# Direct script execution requires repository path setup before these imports.
+from nemotron_ab.config import get_embed_model_name  # noqa: E402
+from nemotron_ab.torch_device import (  # noqa: E402
     DEVICE_CHOICES,
     empty_device_cache,
     prepare_sentence_transformer,

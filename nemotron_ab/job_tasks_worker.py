@@ -12,17 +12,18 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from nemotron_ab import db
-from nemotron_ab.campaign_assets import normalize_job_payload_images
-from nemotron_ab.langchain_eval import evaluate_persona_langchain
-from nemotron_ab.llm_provider import resolve_llm_config
-from nemotron_ab.llm_usage import build_job_llm_usage
-from nemotron_ab.prompt_profile import (
+# Direct script execution requires repository path setup before these imports.
+from nemotron_ab import db  # noqa: E402
+from nemotron_ab.campaign_assets import normalize_job_payload_images  # noqa: E402
+from nemotron_ab.langchain_eval import evaluate_persona_langchain  # noqa: E402
+from nemotron_ab.llm_provider import resolve_llm_config  # noqa: E402
+from nemotron_ab.llm_usage import build_job_llm_usage  # noqa: E402
+from nemotron_ab.prompt_profile import (  # noqa: E402
     default_max_persona_chars,
     resolve_prompt_profile,
 )
-from nemotron_ab.services.validator_runner import OUTPUT_BASE, _make_campaign_payload
-from scripts import ab_validator as mv
+from nemotron_ab.services.validator_runner import OUTPUT_BASE, _make_campaign_payload  # noqa: E402
+from scripts import ab_validator as mv  # noqa: E402
 
 
 def _job_dir(job_id: int) -> Path:
@@ -81,7 +82,7 @@ def _finalize_llm_personas_and_tasks(conn, job_id: int, payload: dict[str, Any])
         job_id,
         "info",
         f"작업 #{job_id} 등록",
-        f"LLM 태스크 {len(rows)}건이 큐에 추가되었습니다.",
+        f"평가 태스크 {len(rows)}건이 큐에 추가되었습니다.",
     )
 
 
@@ -131,7 +132,7 @@ def _run_llm_score(task_row, conn) -> None:
         _maybe_finalize_job(conn, job_id)
         return
 
-    evaluator = str(payload.get("evaluator", "mock"))
+    evaluator = str(payload.get("evaluator", "laya"))
     mw = mv.DEFAULT_METRIC_WEIGHTS.copy()
     seed = int(payload.get("seed", 42))
     llm_base_url = str(payload.get("llm_base_url") or "").strip() or None
@@ -200,6 +201,16 @@ def _run_llm_score(task_row, conn) -> None:
                 score_b = mv.weighted_sum(r["scores"]["B"], mw)
                 r["weighted_score"] = {"A": score_a, "B": score_b}
                 r["confidence"] = mv.confidence_from_margin(score_a, score_b)
+            elif evaluator == "laya":
+                from nemotron_ab.laya_eval import evaluate_persona_laya
+
+                r, usage = evaluate_persona_laya(
+                    persona=persona,
+                    campaign=campaign,
+                    metrics=mw,
+                    max_reason_chars=max_reason,
+                    max_persona_chars=max_persona_chars,
+                )
             else:
                 cfg = resolve_llm_config(base_url=llm_base_url, model=llm_model)
                 r, usage = evaluate_persona_langchain(
@@ -250,6 +261,8 @@ def _run_llm_score(task_row, conn) -> None:
         "reason": r["reason"],
         "tokens": usage,
     }
+    if "engine" in r:
+        out["engine"] = r["engine"]
     partial = _partial_path(job_id)
     partial.parent.mkdir(parents=True, exist_ok=True)
     with partial.open("a", encoding="utf-8") as f:
@@ -318,6 +331,16 @@ def _persist_aggregated_report(
         "funnel": funnel,
         "report": report,
     }
+    if payload.get("evaluator") == "laya":
+        from nemotron_ab.laya_eval import MODEL_ID, SCORE_NOTE
+
+        engine = rows_for_agg[0].get("engine", {}) if rows_for_agg else {}
+        report_obj["evaluation_engine"] = {
+            "name": "laya", "model": MODEL_ID, "score_note": SCORE_NOTE,
+            "device": engine.get("device"), "dtype": engine.get("dtype"),
+            "revision": engine.get("revision"),
+        }
+        report_obj["warnings"].append(SCORE_NOTE)
 
     out_dir = _job_dir(job_id) / "result"
     out_dir.mkdir(parents=True, exist_ok=True)

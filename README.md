@@ -1,5 +1,9 @@
 # Nemotron-AB
 
+기본 텍스트 A/B 평가기는 **LAYA multilingual**입니다. 설치·점수 의미: [LAYA 평가기](docs/laya-evaluator.md).
+
+실측과 채택 판단: [LAYA·H2O·Gemma 종합 비교](docs/benchmarks/decision-models-summary-2026-11-17.md).
+
 > NVIDIA `Nemotron-Personas-Korea` 기반 한국인 페르소나에 **단문(텍스트) 또는 이미지 A/B 변형**을 노출하고 LLM 으로 시뮬레이션 평가하는 오픈소스 도구입니다. 마케팅 카피뿐 아니라 공지 문구, UI 카피, 알림 메시지, 제품 설명, 이미지 등 짧은 콘텐츠 A/B 라면 어떤 것이든 적용할 수 있습니다.
 
 **English short summary** — Nemotron-AB scores short-text and/or image A/B variants against synthetic Korean personas (ages 19–59) from NVIDIA's `Nemotron-Personas-Korea` dataset. It is domain-agnostic: marketing copy, in-product UI strings, notifications, internal announcements, image creatives — anything short fits. The stack ships a FastAPI backend, a Next.js dashboard, a SQLite-backed job queue, and a worker that calls a local Ollama LLM (with optional vision) through LangChain. Results are aggregated into JSON/Markdown reports per job.

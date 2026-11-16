@@ -8,7 +8,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from nemotron_ab.persona_population_cache import CACHE_PATH, build_sex_age_cache
+# Direct script execution requires repository path setup before these imports.
+from nemotron_ab.persona_population_cache import CACHE_PATH, build_sex_age_cache  # noqa: E402
 
 
 def main() -> None:
