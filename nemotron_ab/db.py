@@ -2,7 +2,7 @@ import json
 import os
 import sqlite3
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 from nemotron_ab.db_engine import (
     ENV_DATABASE_URL,
@@ -16,7 +16,7 @@ from nemotron_ab.db_engine import (
 from nemotron_ab.paths import resolve_sqlite_file_path
 
 # 호출부 타입 힌트 호환을 위해 별칭으로 노출. 실제로는 sqlite3.Connection 또는 DBConnection.
-ConnectionLike = Union[sqlite3.Connection, DBConnection]
+ConnectionLike = sqlite3.Connection | DBConnection
 
 
 def _fetch_inserted_id(cur: Any) -> int:

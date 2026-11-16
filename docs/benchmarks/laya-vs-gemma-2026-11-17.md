@@ -111,6 +111,6 @@ python scripts/benchmark_evaluators.py --evaluator openai \
 - Next.js 프로덕션 빌드·타입 검사 통과. 기존 Sidebar 접근성 경고 1건 유지.
 - 모델 SHA-256 대조, DB 6개 파일 크기·SHA-256 대조, 669,558건·1024차원·필터·의미 검색 확인.
 - 새 Python 모듈·벤치 스크립트·테스트 Ruff 통과.
-- 전체 `ruff check nemotron_ab backend scripts`는 기준 코드와 변경 후 모두 기존 오류 38건. 이번 변경으로 새 오류가 추가되지 않았습니다.
+- 기준 코드의 기존 Ruff 오류 38건은 후속 CI 수정에서 해결했습니다. 현재 전체 `ruff check nemotron_ab backend scripts`가 통과합니다.
 
 원본 자료: [LAYA 코드·명시된 모델 한계](https://github.com/NandhaKishorM/laya), [multilingual 체크포인트](https://huggingface.co/convaiinnovations/laya-multilingual), [페르소나 데이터셋](https://huggingface.co/datasets/nvidia/Nemotron-Personas-Korea), [사전 빌드 DB](https://huggingface.co/datasets/renew-dev/nemotron-ab-persona-db-bge-m3). 페르소나 데이터와 파생 메타데이터 출처는 NVIDIA이며 CC-BY-4.0을 따릅니다.

@@ -19,7 +19,8 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from nemotron_ab.config import get_embed_model_name
+# Direct script execution requires repository path setup before these imports.
+from nemotron_ab.config import get_embed_model_name  # noqa: E402
 
 # build_vectordb.py 와 동일하게 유지해야 한다. 변경 시 schema_version 도 같이 올린다.
 EMBEDDING_TEXT_FIELDS_ORDER = [

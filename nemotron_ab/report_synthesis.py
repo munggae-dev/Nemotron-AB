@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -12,6 +12,7 @@ from nemotron_ab import db
 from nemotron_ab.campaign_assets import image_ref_to_data_url, payload_has_any_image
 from nemotron_ab.llm_provider import LLMConfig, extract_usage, make_chat_llm, resolve_llm_config
 from nemotron_ab.llm_usage import build_job_llm_usage
+
 
 def _extract_json_object(text: str) -> dict[str, Any]:
     text = text.strip()
@@ -422,7 +423,7 @@ def synthesize_job_report(
         body_model=body_model,
         job_payload=payload,
     )
-    generated_at = datetime.now(timezone.utc).isoformat()
+    generated_at = datetime.now(UTC).isoformat()
 
     image_max_dim: int | None = None
     image_max_dim_raw = payload.get("image_max_dim")

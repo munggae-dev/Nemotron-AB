@@ -4,13 +4,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
-
 from nemotron_ab.config import get_embed_model_name
-from nemotron_ab.torch_device import resolve_chroma_lc_device
 from nemotron_ab.persona_filter_schema import retrieval_fanout_multiplier
 from nemotron_ab.persona_where import chroma_where_and, district_prefix_keyword
+from nemotron_ab.torch_device import resolve_chroma_lc_device
 
+ROOT = Path(__file__).resolve().parents[1]
 
 def get_chroma_vectorstore(
     db_path: Path | None = None,

@@ -12,17 +12,18 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from nemotron_ab import db
-from nemotron_ab.campaign_assets import normalize_job_payload_images
-from nemotron_ab.langchain_eval import evaluate_persona_langchain
-from nemotron_ab.llm_provider import resolve_llm_config
-from nemotron_ab.llm_usage import build_job_llm_usage
-from nemotron_ab.prompt_profile import (
+# Direct script execution requires repository path setup before these imports.
+from nemotron_ab import db  # noqa: E402
+from nemotron_ab.campaign_assets import normalize_job_payload_images  # noqa: E402
+from nemotron_ab.langchain_eval import evaluate_persona_langchain  # noqa: E402
+from nemotron_ab.llm_provider import resolve_llm_config  # noqa: E402
+from nemotron_ab.llm_usage import build_job_llm_usage  # noqa: E402
+from nemotron_ab.prompt_profile import (  # noqa: E402
     default_max_persona_chars,
     resolve_prompt_profile,
 )
-from nemotron_ab.services.validator_runner import OUTPUT_BASE, _make_campaign_payload
-from scripts import ab_validator as mv
+from nemotron_ab.services.validator_runner import OUTPUT_BASE, _make_campaign_payload  # noqa: E402
+from scripts import ab_validator as mv  # noqa: E402
 
 
 def _job_dir(job_id: int) -> Path:

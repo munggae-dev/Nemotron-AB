@@ -28,6 +28,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+# Direct script execution requires repository path setup before these imports.
 from nemotron_ab.torch_device import (  # noqa: E402
     DEVICE_CHOICES,
     prepare_sentence_transformer,
@@ -168,7 +169,6 @@ def bench_one_model(
             embeddings=emb_list[start:end],
         )
 
-    all_queries = [q for q, _ in PERSONA_QUERIES] + CAMPAIGN_QUERIES
     enc_times: list[float] = []
     top1_dists: list[float] = []
     hit5: list[float] = []
@@ -194,7 +194,7 @@ def bench_one_model(
         if dists:
             top1_dists.append(float(dists[0]))
 
-        def match(meta: dict) -> bool:
+        def match(meta: dict, expected: dict = expected) -> bool:
             ok = True
             if "age_bucket" in expected:
                 ok = ok and meta.get("age_bucket") == expected["age_bucket"]
